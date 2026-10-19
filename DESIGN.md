@@ -549,6 +549,10 @@ h-10 border-b border-border px-4
   （`detailOrigin`，`detailOriginOf()` 生成）：`card` 是整张卡片、`image` 是卡片图片框、
   `url` 是原图地址（供浮层重新请求同一张图）。行点击同样适用。
   卡片图片框和详情主图分别带 `data-card-image` / `data-hero-image` 锚点。
+- **源卡片留白（关键）**：卡片**就是**模态窗，不是被盖住的新物体。打开期间源卡片
+  所在元素 `visibility: hidden`（保留占位，瀑布流**不重排**），它的图片由浮层接管；
+  关闭动画结束后 `openEntry(null)` 才让它重新出现。不要卸载它（会重排），
+  也不要让它保持可见（会出现“卡片 + 模态窗”两个物体）。发现面板的文章卡片同理。
 - **面板展开（打开）**：面板以左上角锚定卡片矩形（`transform-origin: top left`，
   `scale(卡片宽/面板宽)` + `translate(Δ)`），420ms 展开到最终矩形，右/下边缘扫出去；
   `opacity` 0→1 只作为避免透底的辅助，**不要只做淡入**。
@@ -564,7 +568,11 @@ h-10 border-b border-border px-4
      拿到的是缩放中的矩形，用 `DOMMatrixReadOnly(panel transform)` 的比例把主图/面板的
      相对偏移还原成局部坐标，再加展开前记录的 `panelFinalRef`。
      **不要临时清空面板 transform 再测量**——那会打断展开过渡；
-  4. 落地后主图 160ms 淡入、浮层 140ms 淡出并 `display: none`（**保留 DOM**，回程要用）。
+  4. **交接必须瞬时**：落地那一帧把浮层直接 `display: none`、主图直接 `opacity: 1`
+     （两边都不加过渡）。浮层已经和主图矩形、图片、圆角完全重合，瞬时切换看不出来；
+     而淡入淡出会闪——主图自己的图片可能还在解码、或仍在做「模糊→清晰」，淡入时会露出
+     占位。主图图片带 `instant`（`CardImage`）：不做自己的入场过渡，且交接前等
+     `img.decode()` 完成再切。浮层保留 DOM（回程要用），只是隐藏。
 - **飞行动画（关闭）**：所有关闭入口（返回/X/Esc/遮罩）走同一个 `close()`：
   量主图当前矩形 → 浮动层放回主图位置 → 反向把盒子过渡回卡片图片矩形（360ms），
   同时面板反向收回卡片矩形，400ms 后 `openEntry(null)`；`closingRef` 防重复触发。

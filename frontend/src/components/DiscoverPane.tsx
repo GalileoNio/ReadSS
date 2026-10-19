@@ -19,12 +19,15 @@ import { CardImage, FeedIcon, IconButton, Spinner } from './primitives';
  */
 export function DiscoverPane({ mobileFullWidth = false }: { mobileFullWidth?: boolean }) {
   const { imageProxy, openEntry, reloadSubscriptions } = useApp();
+
   const { setDiscoverOpen, pushToast, setDetailOrigin } = useUI();
 
   const [articles, setArticles] = useState<Entry[]>([]);
   const [suggestions, setSuggestions] = useState<FeedSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [state, setState] = useState<Record<string, 'busy' | 'done'>>({});
+  // The card currently open as the article modal, if any.
+  const openedId = useApp((s) => s.selectedEntryId);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -189,7 +192,15 @@ export function DiscoverPane({ mobileFullWidth = false }: { mobileFullWidth?: bo
         ) : (
           <div className="columns-2 gap-3 [column-fill:balance] min-[640px]:columns-3 min-[900px]:columns-4">
             {articles.map((entry) => (
-              <div key={entry.id} className="mb-3 break-inside-avoid">
+              <div
+                key={entry.id}
+                className={cn(
+                  'mb-3 break-inside-avoid',
+                  // The card becomes the modal while it is open: blank slot,
+                  // no reflow (DESIGN.md §7.11).
+                  entry.id === openedId && 'invisible',
+                )}
+              >
                 <div
                   role="button"
                   tabIndex={0}

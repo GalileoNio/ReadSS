@@ -208,20 +208,39 @@ export function ArticleModal() {
     const land = () => {
       if (landed) return;
       landed = true;
-      if (reducedMotion) {
+
+      // Hand off in a single frame. The ghost already sits exactly on the hero
+      // rectangle with the same picture, so an instant swap is invisible. A
+      // cross-fade would flash instead: the hero's own image can still be
+      // decoding (or mid blur-to-sharp), so one layer would show a placeholder.
+      const commit = () => {
+        if (closingRef.current) return;
+        hero.style.transition = 'none';
         hero.style.opacity = '1';
-        setGhost(null);
+        if (ghostRef.current) {
+          ghostRef.current.style.transition = 'none';
+          ghostRef.current.style.opacity = '0';
+          // Keep the element mounted but hidden: the return flight needs it.
+          ghostRef.current.style.display = 'none';
+        }
+      };
+
+      const img = hero.querySelector('img');
+      if (!img) {
+        commit();
         return;
       }
-      hero.style.transition = 'opacity 160ms ease-out';
-      hero.style.opacity = '1';
-      ghostEl.style.transition = 'opacity 140ms ease-out';
-      ghostEl.style.opacity = '0';
-      // Keep the element mounted but hidden: the return flight needs it. Skip
-      // the hiding if a close is already running, or it would vanish mid-return.
-      window.setTimeout(() => {
-        if (ghostRef.current && !closingRef.current) ghostRef.current.style.display = 'none';
-      }, 180);
+      const decoded = img.decode
+        ? img.decode().catch(() => undefined)
+        : Promise.resolve();
+      if (img.complete) {
+        void decoded.then(commit);
+        return;
+      }
+      img.addEventListener('load', () => void decoded.then(commit), { once: true });
+      // If the image never reports load, still hand off rather than leaving a
+      // ghost floating over the article.
+      window.setTimeout(commit, 400);
     };
     ghostEl.addEventListener('transitionend', land, { once: true });
     // A transition that never finishes (tab hidden, image swap) must still land.

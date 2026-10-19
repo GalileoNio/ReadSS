@@ -142,6 +142,12 @@ interface CardImageProps {
    * the card image to (`data-hero-image`).
    */
   hero?: boolean;
+  /**
+   * Show the picture without its blur-to-sharp entrance. The hero uses this: it
+   * is revealed by the flying image, and a second fade of its own would make the
+   * hand-off flicker.
+   */
+  instant?: boolean;
   className?: string;
 }
 
@@ -164,9 +170,10 @@ export function CardImage({
   fallback,
   title,
   hero = false,
+  instant = false,
   className,
 }: CardImageProps) {
-  const [loaded, setLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(instant);
   const [failed, setFailed] = useState(false);
 
   const url = proxiedImageURL(src || '', proxy, referer);
@@ -211,7 +218,7 @@ export function CardImage({
             onError={() => setFailed(true)}
             className={cn(
               'absolute inset-0 h-full w-full select-none object-cover',
-              'transition-[opacity,filter,transform] duration-500 ease-out',
+              instant ? '' : 'transition-[opacity,filter,transform] duration-500 ease-out',
               loaded ? 'scale-100 opacity-100 blur-0' : 'scale-105 opacity-0 blur-lg',
             )}
           />

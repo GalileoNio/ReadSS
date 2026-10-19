@@ -275,6 +275,7 @@ export function Reader({ modal = false }: { modal?: boolean }) {
                     seed={entry.feedTitle || entry.title}
                     ratio="16 / 9"
                     hero
+                    instant
                     className="rounded-xl"
                   />
                 )}
