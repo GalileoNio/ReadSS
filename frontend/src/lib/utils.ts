@@ -1,3 +1,5 @@
+import type { DetailOrigin } from '../store/ui';
+
 import clsx, { type ClassValue } from 'clsx';
 
 /** Tailwind-friendly conditional class names. */
@@ -56,16 +58,24 @@ export function groupLabel(ms: number): string {
 }
 
 /**
- * Deterministic gradient for a feed avatar fallback, derived from its title so
- * the same feed always gets the same colour.
+ * Deterministic hue for a feed/author name, shared by avatar gradients and the
+ * text cover of cards that have no picture.
  */
-export function avatarGradient(seed: string): string {
+export function hueOf(seed: string): number {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
     hash = (hash << 5) - hash + seed.charCodeAt(i);
     hash |= 0;
   }
-  const hue = Math.abs(hash) % 360;
+  return Math.abs(hash) % 360;
+}
+
+/**
+ * Deterministic gradient for a feed avatar fallback, derived from its title so
+ * the same feed always gets the same colour.
+ */
+export function avatarGradient(seed: string): string {
+  const hue = hueOf(seed);
   return `linear-gradient(135deg, hsl(${hue} 62% 52%), hsl(${(hue + 38) % 360} 58% 42%))`;
 }
 
@@ -127,4 +137,32 @@ export function hexToHslTriplet(hex: string): string {
   }
 
   return `${(h * 360).toFixed(1)} ${(s * 100).toFixed(1)}% ${(l * 100).toFixed(1)}%`;
+}
+/**
+ * Ratio of a card's picture box, chosen deterministically from the entry id.
+ *
+ * The box is reserved before the picture loads, so the wall never reflows; the
+ * three values keep some waterfall variety without letting any card change
+ * size later. Cards crop with object-cover, as Xiaohongshu's covers do.
+ */
+const CARD_RATIOS = ['4 / 3', '1 / 1', '16 / 9'] as const;
+
+export function cardRatio(id: number): string {
+  return CARD_RATIOS[Math.abs(id) % CARD_RATIOS.length];
+}
+/**
+ * The rectangles the detail modal needs to fly out of a card: the card itself
+ * and its picture box. The picture is what the transition makes continuous —
+ * the detail hero is literally the same image, scaled into place.
+ */
+export function detailOriginOf(el: HTMLElement, url: string, referer: string): DetailOrigin {
+  const card = el.getBoundingClientRect();
+  const imageEl = el.querySelector<HTMLElement>('[data-card-image]');
+  const image = imageEl ? imageEl.getBoundingClientRect() : null;
+  return {
+    card: { x: card.x, y: card.y, width: card.width, height: card.height },
+    image: image ? { x: image.x, y: image.y, width: image.width, height: image.height } : null,
+    url,
+    referer,
+  };
 }

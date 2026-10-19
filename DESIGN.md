@@ -465,17 +465,30 @@ h-10 border-b border-border px-4
   `mb-3 break-inside-avoid`，这是 CSS 多列实现的真瀑布流（顺序按列自上而下）。
   列数随视口自适应：`<640px` 两列、`≥640px` 三列、`≥900px` 四列、`≥1200px` 五列；
   **最少两列、最多五列**。
-- **卡片**：`overflow-hidden rounded-lg border border-border bg-fill/20`。
-  图片用 `RemoteImage`（走图片代理）且 `w-full`、**不设固定高度**，让原始比例撑开卡片；
-  无图时用 `h-14 bg-fill/30` 的占位加居中 favicon。文字区 `p-2`：
-  标题 `line-clamp-3 text-headline`，下面一行 favicon(12px) + 订阅源 + 相对时间。
+- **卡片**：`overflow-hidden rounded-lg border border-border bg-fill/20`，图片区统一用
+  `CardImage`（`components/primitives.tsx`）。
+- **图片框先定尺寸**：`aspectRatio` 由 `cardRatio(entry.id)` 决定（`4/3`、`1/1`、`16/9` 三档，
+  按 id 取模）。盒子在图片到达之前就占好位，所以**卡片高度不随图片加载变化**；
+  不要改回「图片自然撑开」。
+- **模糊占位 → 清晰**：框底是该订阅源的确定性渐变（`avatarGradient`）放大 + `blur-xl`；
+  图片 `opacity-0 blur-lg scale-105` → `opacity-100 blur-0 scale-100`（450ms，
+  `object-cover` 裁切）。加载过程只影响清晰度，不影响布局。
+- **无图卡片（文字封面）**：`imageUrl` 为空时不留空框、不用 favicon 占位，改用文字封面：
+  1. 底色 = 该订阅源色相（`hueOf(seed)`）以 **14% 透明度**叠加在主题表面色上
+     （浅色主题是浅米色、深色主题是暗色调，同一订阅源永远同一色）；
+  2. 左上角 `Quote` 符号（同色相、34% 透明度，比底色深一档），标题**居中**、
+     `17px`、`font-semibold`、`line-clamp-6`，右下角一小段横线；
+  3. 标题只出现在封面里，卡片下方**不再重复标题**，只保留「订阅源 · 时间」一行；
+  4. 盒子比例与有图卡片一致，瀑布流因此仍然错落但不跳动。
+- **文字区** `p-2`：有图时标题 `line-clamp-3 text-headline`；无论有无图都有一行
+  favicon(12px) + 订阅源 + 相对时间。
 - **状态**：未读点在卡片右上角（`h-2 w-2 bg-accent` + `ring-2 ring-background`）；
   选中卡片 `border-accent/60 ring-1 ring-accent/40`；`dimRead` 时标题与元信息降灰。
 - **不使用**：摘要、日期吸顶分组、行左外的未读圆点——这些属于时间线行，
   瀑布流里没有位置；分组标题无法跨多列吸顶，所以瀑布流模式不显示日期分组。
 - **响应式**：页面本身占满窗口，修改列数只改变卡片密度，不改变栏头与底部悬浮条的位置。
-- **图片加载**：卡片高度在图片加载完成前较小、加载后撑开，多列会随之重排，这是
-  无尺寸信息时的正常行为；滚动区底部仍留 `pb-16` 避免被悬浮条遮住。
+- **图片加载**：框已预留、占位已模糊，加载只改变清晰度，不改变卡片尺寸；
+  滚动区底部仍留 `pb-16` 避免被悬浮条遮住。
 ### 7.8 发现面板（推荐）
 
 订阅推荐与文章推荐放在同一个「发现」面板里，替换列表栏的内容（`DiscoverPane.tsx`）。
@@ -525,3 +538,41 @@ h-10 border-b border-border px-4
 - **关闭与可访问性**：`role="dialog"` + `aria-modal`；Esc、遮罩、关闭按钮均可关闭；
   打开时焦点落在关闭按钮；Tab 在模态窗内循环，不会走到背后的列表。
 - **翻页**：保留上一篇 / 下一篇；键盘 `j/k`、`←/→` 仍可切换当前文章。
+### 7.11 卡片 → 文章模态窗：共享图片的连续形变
+
+文章详情是模态窗（§7.10），从**被点击的卡片**张开，关闭时缩回同一张卡片
+（`components/ArticleModal.tsx`）。核心不是“把窗口放大”，而是两件事同时发生：
+**面板从卡片矩形展开**（不是淡入），**卡片里的那张图就是详情页的大图**——
+它在固定浮层里从卡片图片框飞到详情页主图的位置。
+
+- **记录原点**：卡片点击时把 `{ card, image, url, referer }` 写进 UI store
+  （`detailOrigin`，`detailOriginOf()` 生成）：`card` 是整张卡片、`image` 是卡片图片框、
+  `url` 是原图地址（供浮层重新请求同一张图）。行点击同样适用。
+  卡片图片框和详情主图分别带 `data-card-image` / `data-hero-image` 锚点。
+- **面板展开（打开）**：面板以左上角锚定卡片矩形（`transform-origin: top left`，
+  `scale(卡片宽/面板宽)` + `translate(Δ)`），420ms 展开到最终矩形，右/下边缘扫出去；
+  `opacity` 0→1 只作为避免透底的辅助，**不要只做淡入**。
+- **飞行动画（打开）**：
+  1. 展开开始的同一帧，浮动图片在卡片图片框位置出现；
+  2. 一个 `position: fixed` 的浮动 `<div>` 以卡片图片框的矩形出现，`background-image`
+     用同一个 `proxiedImageURL()`（命中缓存，不会二次下载）；
+  3. 等这篇文章的主图渲染出来（`entry.id === selectedEntryId` 且存在 `[data-hero-image]`），
+     把主图 `opacity: 0`，再让浮层把 **left/top/width/height** 过渡到主图矩形
+     （420ms，同一缓动），圆角 8px → 主图圆角。
+     **必须动画盒子而不是 `scale`**：图片是 `background-size: cover`，盒子变化会重新裁切，
+     缩放会把照片拉变形。主图矩形要换算成最终坐标：面板此时还在展开，`getBoundingClientRect()`
+     拿到的是缩放中的矩形，用 `DOMMatrixReadOnly(panel transform)` 的比例把主图/面板的
+     相对偏移还原成局部坐标，再加展开前记录的 `panelFinalRef`。
+     **不要临时清空面板 transform 再测量**——那会打断展开过渡；
+  4. 落地后主图 160ms 淡入、浮层 140ms 淡出并 `display: none`（**保留 DOM**，回程要用）。
+- **飞行动画（关闭）**：所有关闭入口（返回/X/Esc/遮罩）走同一个 `close()`：
+  量主图当前矩形 → 浮动层放回主图位置 → 反向把盒子过渡回卡片图片矩形（360ms），
+  同时面板反向收回卡片矩形，400ms 后 `openEntry(null)`；`closingRef` 防重复触发。
+  落地后的清理定时器必须判断 `closingRef`，否则会在回程途中把浮动层 `display: none`。
+- **没有图片的卡片**（`imageUrl` 为空）：没有共享元素，退化为**面板 FLIP**——
+  面板从卡片矩形缩放展开/收回（`transform-origin: top left`，380ms/320ms），
+  此时先写起始样式、`void offsetWidth` 强制一次样式刷新再写结束样式，否则浏览器
+  没绘制过起始态会直接跳到终点（“突然出现”）。
+- **没有卡片来源**（命令面板/键盘）：两个矩形都没有，用原有的 `animate-scale-in`。
+- **降低动效**：`prefers-reduced-motion` 时不做飞行与 FLIP，主图/面板直接到位，
+  浮层立即移除。

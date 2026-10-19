@@ -4,9 +4,9 @@ import * as api from '../lib/api';
 import type { Entry, FeedSuggestion } from '../lib/types';
 import { useApp } from '../store/app';
 import { useUI } from '../store/ui';
-import { cn, relativeTime } from '../lib/utils';
+import { cardRatio, cn, detailOriginOf, relativeTime } from '../lib/utils';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
-import { FeedIcon, IconButton, RemoteImage, Spinner } from './primitives';
+import { CardImage, FeedIcon, IconButton, Spinner } from './primitives';
 
 /**
  * Discover pane: what the reader may want to read next, and which feeds they
@@ -19,7 +19,7 @@ import { FeedIcon, IconButton, RemoteImage, Spinner } from './primitives';
  */
 export function DiscoverPane({ mobileFullWidth = false }: { mobileFullWidth?: boolean }) {
   const { imageProxy, openEntry, reloadSubscriptions } = useApp();
-  const { setDiscoverOpen, pushToast } = useUI();
+  const { setDiscoverOpen, pushToast, setDetailOrigin } = useUI();
 
   const [articles, setArticles] = useState<Entry[]>([]);
   const [suggestions, setSuggestions] = useState<FeedSuggestion[]>([]);
@@ -64,6 +64,15 @@ export function DiscoverPane({ mobileFullWidth = false }: { mobileFullWidth?: bo
       });
       pushToast({ message: (err as Error).message, tone: 'error' });
     }
+  };
+
+  /** Open an article as the detail modal, growing out of the card that was
+   *  clicked (DESIGN.md §7.11). */
+  const openCard = (entry: Entry, el: HTMLElement) => {
+    setDetailOrigin(detailOriginOf(el, entry.imageUrl, entry.url));
+    void openEntry(entry.id);
+    // The pane stays behind the modal: the article shrinks back into the card
+    // it came from when it closes.
   };
 
   return (
@@ -184,38 +193,38 @@ export function DiscoverPane({ mobileFullWidth = false }: { mobileFullWidth?: bo
                 <div
                   role="button"
                   tabIndex={0}
-                  onClick={() => {
-                    void openEntry(entry.id);
-                    setDiscoverOpen(false);
-                  }}
+                  onClick={(e) => openCard(entry, e.currentTarget)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      void openEntry(entry.id);
-                      setDiscoverOpen(false);
-                    }
+                    if (e.key === 'Enter') openCard(entry, e.currentTarget);
                   }}
                   className={cn(
                     'group block w-full cursor-default overflow-hidden rounded-lg border border-border',
                     'bg-fill/20 text-left transition-colors hover:bg-item-hover',
                   )}
                 >
-                  {entry.imageUrl ? (
-                    <RemoteImage
-                      src={entry.imageUrl}
-                      proxy={imageProxy}
-                      referer={entry.url}
-                      className="w-full"
-                    />
-                  ) : (
-                    <div className="flex h-14 items-center justify-center bg-fill/30">
-                      <FeedIcon title={entry.feedTitle} iconUrl={entry.feedIcon} size={20} />
-                    </div>
-                  )}
+                  <CardImage
+                    src={entry.imageUrl}
+                    proxy={imageProxy}
+                    referer={entry.url}
+                    seed={entry.feedTitle || entry.title}
+                    ratio={cardRatio(entry.id)}
+                    title={entry.title}
+                    fallback={
+                      <FeedIcon title={entry.feedTitle} iconUrl={entry.feedIcon} size={22} />
+                    }
+                  />
                   <div className="p-2">
-                    <h4 className="line-clamp-3 break-words text-headline font-medium leading-snug text-fg">
-                      {entry.title}
-                    </h4>
-                    <div className="mt-1.5 flex min-w-0 items-center gap-1 text-[10px] font-bold text-fg/50">
+                    {entry.imageUrl && (
+                      <h4 className="line-clamp-3 break-words text-headline font-medium leading-snug text-fg">
+                        {entry.title}
+                      </h4>
+                    )}
+                    <div
+                      className={cn(
+                        'flex min-w-0 items-center gap-1 text-[10px] font-bold text-fg/50',
+                        entry.imageUrl ? 'mt-1.5' : 'mt-0.5',
+                      )}
+                    >
                       <FeedIcon title={entry.feedTitle} iconUrl={entry.feedIcon} size={12} />
                       <span className="truncate">{entry.feedTitle}</span>
                       <span aria-hidden>·</span>

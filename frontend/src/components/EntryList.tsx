@@ -21,7 +21,7 @@ import { useApp } from '../store/app';
 import { useUI } from '../store/ui';
 import { useCountdownToast } from './overlays';
 import { VIEWS, type Entry, type Scope } from '../lib/types';
-import { cn, groupLabel, relativeTime } from '../lib/utils';
+import { cardRatio, cn, detailOriginOf, groupLabel, relativeTime } from '../lib/utils';
 import {
   AnimatedArticlesIcon,
   AnimatedHomeIcon,
@@ -35,7 +35,7 @@ import {
 } from './AnimatedIcons';
 import { FeedSwitcher } from './FeedSwitcher';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
-import { FeedIcon, IconButton, RemoteImage, Spinner } from './primitives';
+import { CardImage, FeedIcon, IconButton, RemoteImage, Spinner } from './primitives';
 
 /** Inline glyphs for the five views, sized for the header capsule group. */
 function ViewGlyph({ viewKey, size = 12 }: { viewKey: string; size?: number }) {
@@ -75,9 +75,12 @@ interface RowProps {
   selected: boolean;
   dimRead: boolean;
   edgeToEdge: boolean;
+  /** This row has become the open article modal: keep the slot, draw nothing. */
+  blank: boolean;
   /** Loopback image proxy origin, or '' to load images directly. */
   imageProxy: string;
-  onSelect: (entry: Entry) => void;
+  /** The clicked element is where the detail modal grows out of (DESIGN.md §7.11). */
+  onSelect: (entry: Entry, el: HTMLElement) => void;
   onContextMenu: (e: React.MouseEvent, entry: Entry) => void;
 }
 
@@ -86,7 +89,7 @@ interface RowProps {
  * of the row, exactly as Folo does it — which is why the list needs horizontal
  * padding of at least 12px.
  */
-function EntryRow({ entry, selected, dimRead, edgeToEdge, imageProxy, onSelect, onContextMenu }: RowProps) {
+function EntryRow({ entry, selected, dimRead, edgeToEdge, blank, imageProxy, onSelect, onContextMenu }: RowProps) {
   const dimmed = dimRead && entry.read;
 
   return (
@@ -94,16 +97,17 @@ function EntryRow({ entry, selected, dimRead, edgeToEdge, imageProxy, onSelect, 
       role="button"
       tabIndex={0}
       data-active={selected}
-      onClick={() => onSelect(entry)}
+      onClick={(e) => onSelect(entry, e.currentTarget)}
       onContextMenu={(e) => onContextMenu(e, entry)}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') onSelect(entry);
+        if (e.key === 'Enter') onSelect(entry, e.currentTarget);
       }}
       className={cn(
         'group relative block w-full cursor-default text-left transition-colors duration-200',
         'hover:bg-item-hover',
         selected && 'bg-item-active',
         edgeToEdge ? 'rounded-none' : 'rounded-md',
+        blank && 'invisible',
       )}
     >
       {/* Unread dot */}
@@ -171,7 +175,8 @@ interface CardProps {
   dimRead: boolean;
   /** Loopback image proxy origin, or '' to load images directly. */
   imageProxy: string;
-  onSelect: (entry: Entry) => void;
+  /** The clicked element is where the detail modal grows out of (DESIGN.md §7.11). */
+  onSelect: (entry: Entry, el: HTMLElement) => void;
   onContextMenu: (e: React.MouseEvent, entry: Entry) => void;
 }
 
@@ -191,10 +196,10 @@ function EntryCard({ entry, selected, dimRead, imageProxy, onSelect, onContextMe
       role="button"
       tabIndex={0}
       data-active={selected}
-      onClick={() => onSelect(entry)}
+      onClick={(e) => onSelect(entry, e.currentTarget)}
       onContextMenu={(e) => onContextMenu(e, entry)}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') onSelect(entry);
+        if (e.key === 'Enter') onSelect(entry, e.currentTarget);
       }}
       className={cn(
         'group relative block w-full cursor-default overflow-hidden rounded-lg border border-border',
@@ -202,26 +207,33 @@ function EntryCard({ entry, selected, dimRead, imageProxy, onSelect, onContextMe
         selected && 'border-accent/60 ring-1 ring-accent/40',
       )}
     >
-      {entry.imageUrl ? (
-        <RemoteImage src={entry.imageUrl} proxy={imageProxy} referer={entry.url} className="w-full" />
-      ) : (
-        <div className="flex h-14 items-center justify-center bg-fill/30">
-          <FeedIcon title={entry.feedTitle} iconUrl={entry.feedIcon} size={20} />
-        </div>
-      )}
+      <CardImage
+        src={entry.imageUrl}
+        proxy={imageProxy}
+        referer={entry.url}
+        seed={entry.feedTitle || entry.title}
+        ratio={cardRatio(entry.id)}
+        title={entry.title}
+        fallback={<FeedIcon title={entry.feedTitle} iconUrl={entry.feedIcon} size={22} />}
+      />
 
       <div className="p-2">
-        <h3
-          className={cn(
-            'line-clamp-3 break-words text-headline font-medium leading-snug',
-            dimmed ? 'text-fg/50' : 'text-fg',
-          )}
-        >
-          {entry.title}
-        </h3>
+        {/* Without a picture the title already lives on the cover; repeating it
+            underneath would show the same sentence twice in one card. */}
+        {entry.imageUrl && (
+          <h3
+            className={cn(
+              'line-clamp-3 break-words text-headline font-medium leading-snug',
+              dimmed ? 'text-fg/50' : 'text-fg',
+            )}
+          >
+            {entry.title}
+          </h3>
+        )}
         <div
           className={cn(
-            'mt-1.5 flex min-w-0 items-center gap-1 text-[10px] font-bold',
+            'flex min-w-0 items-center gap-1 text-[10px] font-bold',
+            entry.imageUrl ? 'mt-1.5' : 'mt-0.5',
             dimmed ? 'text-fg/25' : 'text-fg/50',
           )}
         >
@@ -280,7 +292,14 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
     imageProxy,
   } = useApp();
 
-  const { openContextMenu, pushToast, setPaletteOpen, setSettingsOpen, setDiscoverOpen } = useUI();
+  const {
+    openContextMenu,
+    pushToast,
+    setPaletteOpen,
+    setSettingsOpen,
+    setDiscoverOpen,
+    setDetailOrigin,
+  } = useUI();
   const countdownToast = useCountdownToast();
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -632,13 +651,25 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
           entries.length > 0 && (
             <div className="columns-2 gap-3 [column-fill:balance] min-[640px]:columns-3 min-[900px]:columns-4 min-[1200px]:columns-5">
               {entries.map((entry) => (
-                <div key={entry.id} className="mb-3 break-inside-avoid">
+                <div
+                  key={entry.id}
+                  className={cn(
+                    'mb-3 break-inside-avoid',
+                    // The card IS the article modal while it is open: keep the
+                    // slot in the wall (no reflow) but leave it empty. It comes
+                    // back once the modal has shrunk into it (DESIGN.md §7.11).
+                    entry.id === selectedEntryId && 'invisible',
+                  )}
+                >
                   <EntryCard
                     entry={entry}
                     selected={entry.id === selectedEntryId}
                     dimRead={settings.dimRead}
                     imageProxy={imageProxy}
-                    onSelect={(e) => void openEntry(e.id)}
+                    onSelect={(e, el) => {
+                      setDetailOrigin(detailOriginOf(el, e.imageUrl, e.url));
+                      void openEntry(e.id);
+                    }}
                     onContextMenu={entryMenu}
                   />
                 </div>
@@ -661,8 +692,12 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
                     selected={entry.id === selectedEntryId}
                     dimRead={settings.dimRead}
                     edgeToEdge={edgeToEdge}
+                    blank={entry.id === selectedEntryId}
                     imageProxy={imageProxy}
-                    onSelect={(e) => void openEntry(e.id)}
+                    onSelect={(e, el) => {
+                      setDetailOrigin(detailOriginOf(el, e.imageUrl, e.url));
+                      void openEntry(e.id);
+                    }}
                     onContextMenu={entryMenu}
                   />
                 ))}

@@ -21,7 +21,7 @@ import {
 import { useApp } from '../store/app';
 import { useUI } from '../store/ui';
 import { cn, formatDate, hostOf } from '../lib/utils';
-import { FeedIcon, IconButton, RemoteImage, Spinner } from './primitives';
+import { CardImage, FeedIcon, IconButton, Spinner } from './primitives';
 import { openExternal } from '../lib/feedActions';
 import { handleContentLinkClick, proxyRemoteImages } from '../lib/remoteImages';
 import { useViewport } from '../hooks/useViewport';
@@ -268,11 +268,14 @@ export function Reader({ modal = false }: { modal?: boolean }) {
                   title, author card, then meta chips. */}
               <div className="mt-5 flex flex-col gap-3">
                 {entry.imageUrl && (
-                  <RemoteImage
+                  <CardImage
                     src={entry.imageUrl}
                     proxy={imageProxy}
                     referer={entry.url}
-                    className="w-full rounded-xl"
+                    seed={entry.feedTitle || entry.title}
+                    ratio="16 / 9"
+                    hero
+                    className="rounded-xl"
                   />
                 )}
 

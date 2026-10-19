@@ -16,6 +16,28 @@ export interface ContextMenuState {
   items: MenuItem[];
 }
 
+/** Rect of the card the detail modal grows out of and returns to. */
+export interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Where the detail modal comes from: the card itself, the card's picture box
+ * (the detail hero is the same picture, scaled up) and enough information to
+ * request that picture again for the flight.
+ */
+export interface DetailOrigin {
+  card: Rect;
+  image: Rect | null;
+  /** Raw image URL of the card, or '' when the card has no picture. */
+  url: string;
+  /** Page the picture belongs to, for the proxy's Referer. */
+  referer: string;
+}
+
 export interface Toast {
   id: number;
   message: string;
@@ -53,6 +75,14 @@ interface UIState {
   discoverOpen: boolean;
   setDiscoverOpen: (open: boolean) => void;
 
+  /**
+   * Rectangle of the card an article was opened from. The detail modal grows
+   * out of it and shrinks back into it on close (DESIGN.md §7.11). Null when
+   * the article was opened from somewhere without a card (keyboard, palette).
+   */
+  detailOrigin: DetailOrigin | null;
+  setDetailOrigin: (origin: DetailOrigin | null) => void;
+
   toasts: Toast[];
   pushToast: (
     t: Omit<Toast, 'id' | 'duration' | 'tone'> & { tone?: Toast['tone']; duration?: number },
@@ -86,6 +116,9 @@ export const useUI = create<UIState>((set, get) => ({
 
   discoverOpen: false,
   setDiscoverOpen: (open) => set({ discoverOpen: open }),
+
+  detailOrigin: null,
+  setDetailOrigin: (origin) => set({ detailOrigin: origin }),
 
   toasts: [],
 

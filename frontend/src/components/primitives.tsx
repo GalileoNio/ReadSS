@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { X } from 'lucide-react';
-import { avatarGradient, cn, initialOf } from '../lib/utils';
+import { Quote, X } from 'lucide-react';
+import { avatarGradient, cn, hueOf, initialOf } from '../lib/utils';
 
 /* --------------------------------------------------------------- FeedIcon */
 
@@ -99,6 +99,147 @@ export function RemoteImage({ src, alt = '', className, proxy, referer }: Remote
       onError={() => setFailed(true)}
       className={cn('select-none object-cover', className)}
     />
+  );
+}
+
+/**
+ * The URL an image should be requested from: through the loopback proxy when
+ * one is available, untouched for data URIs and already-proxied sources.
+ */
+export function proxiedImageURL(src: string, proxy = '', referer?: string): string {
+  if (!src) return '';
+  if (!proxy || src.startsWith('data:') || src.startsWith(proxy)) return src;
+  const suffix = referer ? `&r=${encodeURIComponent(referer)}` : '';
+  return `${proxy}/i?u=${encodeURIComponent(src)}${suffix}`;
+}
+
+/* -------------------------------------------------------------- CardImage */
+
+interface CardImageProps {
+  /** Absolute image URL, or '' when the entry has no picture. */
+  src?: string;
+  alt?: string;
+  /** Loopback proxy origin, or '' to load directly. */
+  proxy?: string;
+  /** Page the image belongs to; the proxy sends it upstream as the Referer. */
+  referer?: string;
+  /**
+   * Box ratio, e.g. '4 / 3'. The box is reserved up front, so a card's height
+   * never changes while its picture loads — the wall does not reflow.
+   */
+  ratio?: string;
+  /** Seed for the blurred placeholder and for the no-image fallback. */
+  seed: string;
+  /** Drawn in the middle when there is no picture at all. */
+  fallback?: ReactNode;
+  /**
+   * Article title. Cards without a picture draw it on the cover itself, over a
+   * light tint of the feed's colour plus a quote mark (DESIGN.md §7.7).
+   */
+  title?: string;
+  /**
+   * Marks this box as the detail page's hero, so the modal knows where to fly
+   * the card image to (`data-hero-image`).
+   */
+  hero?: boolean;
+  className?: string;
+}
+
+/**
+ * A card's picture area: fixed box, blurred colour placeholder, then the picture
+ * fades in from blurred to sharp.
+ *
+ * The box exists before the image does, which is what keeps a waterfall wall
+ * still while thirty thumbnails load one by one. The placeholder borrows the
+ * feed's deterministic gradient (avatarGradient), so it is stable across
+ * renders and recognisable as that source.
+ */
+export function CardImage({
+  src,
+  alt = '',
+  proxy = '',
+  referer,
+  ratio = '4 / 3',
+  seed,
+  fallback,
+  title,
+  hero = false,
+  className,
+}: CardImageProps) {
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const url = proxiedImageURL(src || '', proxy, referer);
+  const showImage = Boolean(url) && !failed;
+  // Text covers keep the same box and the feed's hue, but as a pale tint so the
+  // title stays readable in both themes: the hue is applied as alpha over the
+  // theme's own surface, not as an absolute colour.
+  const hue = hueOf(seed || '?');
+  const tint = `hsl(${hue} 58% 50% / 0.14)`;
+  const markInk = `hsl(${hue} 52% 42% / 0.34)`;
+
+  return (
+    <div
+      data-card-image={hero ? undefined : ''}
+      data-hero-image={hero ? '' : undefined}
+      style={
+        showImage
+          ? { aspectRatio: ratio, backgroundImage: avatarGradient(seed || '?') }
+          : { aspectRatio: ratio, background: tint }
+      }
+      className={cn('relative w-full select-none overflow-hidden bg-cover bg-center', className)}
+    >
+      {showImage ? (
+        <>
+          {/* Blurred stand-in: the gradient, scaled up and softened so it reads
+              as a blurred picture rather than a flat block. */}
+          <div
+            aria-hidden="true"
+            className={cn(
+              'absolute inset-0 scale-110 bg-cover bg-center blur-xl transition-opacity duration-300',
+              loaded ? 'opacity-0' : 'opacity-90',
+            )}
+            style={{ backgroundImage: avatarGradient(seed || '?') }}
+          />
+          <img
+            src={url}
+            alt={alt}
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+            onLoad={() => setLoaded(true)}
+            onError={() => setFailed(true)}
+            className={cn(
+              'absolute inset-0 h-full w-full select-none object-cover',
+              'transition-[opacity,filter,transform] duration-500 ease-out',
+              loaded ? 'scale-100 opacity-100 blur-0' : 'scale-105 opacity-0 blur-lg',
+            )}
+          />
+        </>
+      ) : title ? (
+        /* Text cover: pale feed tint, a slightly deeper quote mark pinned to the
+           top-left, the title centred, and a short rule in the corner — the same
+           box as a picture card, so the wall stays even. */
+        <div className="absolute inset-0 flex items-center justify-center p-5">
+          <Quote
+            size={34}
+            className="absolute left-4 top-4 shrink-0"
+            style={{ color: markInk }}
+            aria-hidden="true"
+          />
+          <p className="line-clamp-6 break-words text-center text-[17px] font-semibold leading-snug text-fg/90">
+            {title}
+          </p>
+          <span
+            aria-hidden="true"
+            className="absolute bottom-4 right-4 h-[3px] w-5 rounded-full"
+            style={{ backgroundColor: markInk }}
+          />
+        </div>
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center">{fallback}</div>
+      )}
+    </div>
   );
 }
 
