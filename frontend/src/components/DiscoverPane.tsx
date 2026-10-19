@@ -72,7 +72,7 @@ export function DiscoverPane({ mobileFullWidth = false }: { mobileFullWidth?: bo
   /** Open an article as the detail modal, growing out of the card that was
    *  clicked (DESIGN.md §7.11). */
   const openCard = (entry: Entry, el: HTMLElement) => {
-    setDetailOrigin(detailOriginOf(el, entry.imageUrl, entry.url));
+    setDetailOrigin(detailOriginOf(el, entry, feeds.find((f) => f.id === entry.feedId)?.color));
     void openEntry(entry.id);
     // The pane stays behind the modal: the article shrinks back into the card
     // it came from when it closes.

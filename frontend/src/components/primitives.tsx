@@ -186,13 +186,7 @@ export function CardImage({
   const showImage = Boolean(url) && !failed;
   // The feed's own colour wins: alpha tints keep the box readable on both
   // themes. Only when the icon yields no colour do we fall back to the hash hue.
-  const hue = hueOf(seed || '?');
-  const tint = color
-    ? `color-mix(in srgb, ${color} 14%, transparent)`
-    : `hsl(${hue} 58% 50% / 0.14)`;
-  const markInk = color
-    ? `color-mix(in srgb, ${color} 46%, transparent)`
-    : `hsl(${hue} 52% 42% / 0.34)`;
+  const tint = coverTint(seed, color);
   const placeholder = color
     ? `linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 62%, #000))`
     : avatarGradient(seed || '?');
@@ -236,25 +230,7 @@ export function CardImage({
           />
         </>
       ) : title ? (
-        /* Text cover: pale feed tint, a slightly deeper quote mark pinned to the
-           top-left, the title centred, and a short rule in the corner — the same
-           box as a picture card, so the wall stays even. */
-        <div className="absolute inset-0 flex items-center justify-center p-5">
-          <Quote
-            size={34}
-            className="absolute left-4 top-4 shrink-0"
-            style={{ color: markInk }}
-            aria-hidden="true"
-          />
-          <p className="line-clamp-6 break-words text-center text-[17px] font-semibold leading-snug text-fg/90">
-            {title}
-          </p>
-          <span
-            aria-hidden="true"
-            className="absolute bottom-4 right-4 h-[3px] w-5 rounded-full"
-            style={{ backgroundColor: markInk }}
-          />
-        </div>
+        <CoverArt title={title} seed={seed} color={color} />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center">{fallback}</div>
       )}
@@ -408,3 +384,63 @@ export const inputClass = cn(
   'w-full rounded-md border border-border bg-fill/40 px-2.5 py-2 text-headline text-fg',
   'placeholder:text-fg/25 focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent/25',
 );
+/**
+ * The drawn cover of an article that has no picture: pale feed tint, a quote
+ * mark, the title. It is used by the card, by the detail hero, and by the
+ * flying layer during the card → detail transition, so all three look identical
+ * at every moment (DESIGN.md §7.7 / §7.11).
+ */
+export function CoverArt({
+  title,
+  seed,
+  color,
+}: {
+  title: string;
+  seed: string;
+  color?: string;
+}) {
+  const hue = hueOf(seed || '?');
+  const markInk = color
+    ? `color-mix(in srgb, ${color} 46%, transparent)`
+    : `hsl(${hue} 52% 42% / 0.34)`;
+  // Typography is relative to the box width (`cqw`), so the same cover reads
+  // correctly as a card thumbnail and as the full-bleed hero — and stays
+  // consistent while the flying layer grows it (DESIGN.md §7.11). The element
+  // carrying `container-type` must not use `cqw` itself, so the padded content
+  // sits one level below it.
+  return (
+    <div className="absolute inset-0 [container-type:inline-size]">
+      <div className="absolute inset-0 flex items-center justify-center" style={{ padding: '7cqw' }}>
+        <Quote
+          className="absolute shrink-0"
+          style={{ color: markInk, left: '6cqw', top: '6cqw', width: '11cqw', height: '11cqw' }}
+          aria-hidden="true"
+        />
+        <p
+          className="line-clamp-6 break-words text-center font-semibold leading-snug text-fg/90"
+          style={{ fontSize: 'clamp(13px, 6.2cqw, 64px)' }}
+        >
+          {title}
+        </p>
+        <span
+          aria-hidden="true"
+          className="absolute rounded-full"
+          style={{
+            backgroundColor: markInk,
+            right: '6cqw',
+            bottom: '6cqw',
+            width: '7cqw',
+            height: '1.1cqw',
+            minHeight: 2,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** Background of a drawn cover, shared with its flying layer. */
+export function coverTint(seed: string, color?: string): string {
+  if (color) return `color-mix(in srgb, ${color} 14%, transparent)`;
+  return `hsl(${hueOf(seed || '?')} 58% 50% / 0.14)`;
+}

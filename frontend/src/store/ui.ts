@@ -27,7 +27,8 @@ export interface Rect {
 /**
  * Where the detail modal comes from: the card itself, the card's picture box
  * (the detail hero is the same picture, scaled up) and enough information to
- * request that picture again for the flight.
+ * request that picture again for the flight. Articles without a picture use the
+ * drawn cover instead, so the same box carries its title and theme colours.
  */
 export interface DetailOrigin {
   card: Rect;
@@ -36,6 +37,10 @@ export interface DetailOrigin {
   url: string;
   /** Page the picture belongs to, for the proxy's Referer. */
   referer: string;
+  /** Drawn-cover content, used when `url` is empty. */
+  title: string;
+  seed: string;
+  color?: string;
 }
 
 export interface Toast {

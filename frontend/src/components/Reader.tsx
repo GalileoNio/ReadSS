@@ -221,8 +221,10 @@ export function Reader({ modal = false }: { modal?: boolean }) {
           <article className="relative w-full min-w-0 overflow-hidden pb-10">
             {/* In the modal the hero is full-bleed: no top, left or right margin
                 and no rounded corners, so it reads as the note's cover rather
-                than an inline picture. The floating toolbar sits over it. */}
-            {modal && entry.imageUrl && (
+                than an inline picture. The floating toolbar sits over it.
+                Without a picture the same box shows the drawn cover — it is
+                treated as the article's image (DESIGN.md §7.11). */}
+            {modal && (
               <CardImage
                 src={entry.imageUrl}
                 proxy={imageProxy}
@@ -230,6 +232,7 @@ export function Reader({ modal = false }: { modal?: boolean }) {
                 seed={entry.feedTitle || entry.title}
                 ratio="16 / 9"
                 color={feeds.find((f) => f.id === entry.feedId)?.color}
+                title={entry.title}
                 hero
                 instant
                 className="w-full"
@@ -293,7 +296,7 @@ export function Reader({ modal = false }: { modal?: boolean }) {
               <div
                 className={cn(
                   'flex flex-col gap-3',
-                  modal ? (entry.imageUrl || entry.hasFullContent ? 'mt-4' : 'mt-14') : 'mt-5',
+                  modal ? (entry.hasFullContent ? 'mt-4' : 'mt-14') : 'mt-5',
                 )}
               >
                 {entry.imageUrl && !modal && (
@@ -310,22 +313,26 @@ export function Reader({ modal = false }: { modal?: boolean }) {
                   />
                 )}
 
-                <h1 className="inline-block break-words text-[1.85rem] font-bold leading-normal text-fg">
-                  {entry.url ? (
-                    <a
-                      href={entry.url}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        openExternal(entry.url);
-                      }}
-                      className="transition-opacity hover:opacity-95"
-                    >
-                      {entry.title}
-                    </a>
-                  ) : (
-                    entry.title
-                  )}
-                </h1>
+                {/* A drawn cover already carries the title, so repeating it as a
+                    heading underneath would show the same sentence twice. */}
+                {!(modal && !entry.imageUrl) && (
+                  <h1 className="inline-block break-words text-[1.85rem] font-bold leading-normal text-fg">
+                    {entry.url ? (
+                      <a
+                        href={entry.url}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          openExternal(entry.url);
+                        }}
+                        className="transition-opacity hover:opacity-95"
+                      >
+                        {entry.title}
+                      </a>
+                    ) : (
+                      entry.title
+                    )}
+                  </h1>
+                )}
 
                 {/* In the modal the author card and meta live in the right
                     sidebar, so the article pane keeps only the image and title. */}

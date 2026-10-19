@@ -14,7 +14,7 @@ import { VIEWS } from '../lib/types';
 import { cn, formatDate, hostOf } from '../lib/utils';
 import { CommentsPane } from './CommentsPane';
 import { Reader } from './Reader';
-import { FeedIcon, proxiedImageURL } from './primitives';
+import { CoverArt, coverTint, FeedIcon, proxiedImageURL } from './primitives';
 
 /** Images fly a little slower than the panel: the picture is the subject. */
 const IMAGE_FLIGHT = 420;
@@ -51,8 +51,8 @@ export function ArticleModal() {
   const originRef = useRef<DetailOrigin | null>(detailOrigin);
   const closingRef = useRef(false);
   const closeFn = useRef<() => void>(() => undefined);
-  /** Still waiting for the card picture to fly into the detail hero. */
-  const wantsImageFlight = useRef(Boolean(detailOrigin?.image && detailOrigin?.url));
+  /** Still waiting for the card cover to fly into the detail hero. */
+  const wantsImageFlight = useRef(Boolean(detailOrigin?.image));
   /** The panel's final rectangle, captured before the unfold transform. */
   const panelFinalRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
   /** No card at all (palette, keyboard): let the CSS animation handle it. */
@@ -62,19 +62,29 @@ export function ArticleModal() {
       window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   ).current;
 
-  // The flying picture, positioned at the card's image box until it is given
-  // its destination. Kept mounted after landing so closing can reuse it.
+  // The flying cover, positioned at the card's cover box until it is given its
+  // destination. It is the card's picture, or — for articles without a picture —
+  // the drawn cover (title over the feed tint), which is treated exactly like a
+  // picture (DESIGN.md §7.11). Kept mounted after landing so closing can reuse it.
   const [ghost, setGhost] = useState<{
+    kind: 'image' | 'text';
     url: string;
+    title: string;
+    seed: string;
+    color?: string;
     x: number;
     y: number;
     w: number;
     h: number;
   } | null>(() => {
     const o = originRef.current;
-    if (!o?.image || !o.url) return null;
+    if (!o?.image) return null;
     return {
-      url: proxiedImageURL(o.url, imageProxy, o.referer),
+      kind: o.url ? 'image' : 'text',
+      url: o.url ? proxiedImageURL(o.url, imageProxy, o.referer) : '',
+      title: o.title,
+      seed: o.seed,
+      color: o.color,
       x: o.image.x,
       y: o.image.y,
       w: o.image.width,
@@ -147,7 +157,7 @@ export function ArticleModal() {
     const origin = originRef.current;
     wantsImageFlight.current = false;
 
-    if (!panel || !origin?.image || !entry.imageUrl) {
+    if (!panel || !origin?.image) {
       setGhost(null);
       return;
     }
@@ -410,21 +420,33 @@ export function ArticleModal() {
         aria-hidden="true"
       />
 
-      {/* Flying picture: starts at the card's image box, lands in the hero. */}
+      {/* Flying cover: starts at the card's cover box and lands in the hero. It
+          is the card's picture, or — for articles without a picture — the drawn
+          cover, which is treated exactly like a picture (DESIGN.md §7.11). */}
       {ghost && (
         <div
           ref={ghostRef}
           aria-hidden="true"
-          className="pointer-events-none fixed z-30 select-none overflow-hidden bg-cover bg-center"
+          className="pointer-events-none fixed z-30 select-none overflow-hidden"
           style={{
             left: ghost.x,
             top: ghost.y,
             width: ghost.w,
             height: ghost.h,
             borderRadius: 8,
-            backgroundImage: `url("${ghost.url}")`,
+            ...(ghost.kind === 'image'
+              ? {
+                  backgroundImage: `url("${ghost.url}")`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                }
+              : { background: coverTint(ghost.seed, ghost.color) }),
           }}
-        />
+        >
+          {ghost.kind === 'text' && (
+            <CoverArt title={ghost.title} seed={ghost.seed} color={ghost.color} />
+          )}
+        </div>
       )}
 
       <div

@@ -152,17 +152,25 @@ export function cardRatio(id: number): string {
 }
 /**
  * The rectangles the detail modal needs to fly out of a card: the card itself
- * and its picture box. The picture is what the transition makes continuous —
- * the detail hero is literally the same image, scaled into place.
+ * and its cover box. The cover is what the transition makes continuous — the
+ * detail hero is literally the same picture (or the same drawn cover), scaled
+ * into place.
  */
-export function detailOriginOf(el: HTMLElement, url: string, referer: string): DetailOrigin {
+export function detailOriginOf(
+  el: HTMLElement,
+  entry: { imageUrl: string; url: string; title: string; feedTitle?: string },
+  color?: string,
+): DetailOrigin {
   const card = el.getBoundingClientRect();
   const imageEl = el.querySelector<HTMLElement>('[data-card-image]');
   const image = imageEl ? imageEl.getBoundingClientRect() : null;
   return {
     card: { x: card.x, y: card.y, width: card.width, height: card.height },
     image: image ? { x: image.x, y: image.y, width: image.width, height: image.height } : null,
-    url,
-    referer,
+    url: entry.imageUrl,
+    referer: entry.url,
+    title: entry.title,
+    seed: entry.feedTitle || entry.title,
+    color,
   };
 }

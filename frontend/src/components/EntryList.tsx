@@ -677,7 +677,7 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
                     feedColor={feedColors.get(entry.feedId)}
                     imageProxy={imageProxy}
                     onSelect={(e, el) => {
-                      setDetailOrigin(detailOriginOf(el, e.imageUrl, e.url));
+                      setDetailOrigin(detailOriginOf(el, e, feedColors.get(e.feedId)));
                       void openEntry(e.id);
                     }}
                     onContextMenu={entryMenu}
@@ -705,7 +705,7 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
                     blank={entry.id === selectedEntryId}
                     imageProxy={imageProxy}
                     onSelect={(e, el) => {
-                      setDetailOrigin(detailOriginOf(el, e.imageUrl, e.url));
+                      setDetailOrigin(detailOriginOf(el, e, feedColors.get(e.feedId)));
                       void openEntry(e.id);
                     }}
                     onContextMenu={entryMenu}
