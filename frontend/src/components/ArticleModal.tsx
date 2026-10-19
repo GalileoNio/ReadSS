@@ -56,6 +56,11 @@ export function ArticleModal() {
       if (focusables.length === 0) return;
       const first = focusables[0];
       const last = focusables[focusables.length - 1];
+      if (!root.contains(document.activeElement)) {
+        e.preventDefault();
+        first.focus();
+        return;
+      }
       if (e.shiftKey && document.activeElement === first) {
         e.preventDefault();
         last.focus();

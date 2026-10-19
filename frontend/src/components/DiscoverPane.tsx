@@ -167,7 +167,7 @@ export function DiscoverPane({ mobileFullWidth = false }: { mobileFullWidth?: bo
           为你推荐
         </h3>
         {loading && articles.length === 0 ? (
-          <div className="columns-2 gap-3 min-[640px]:columns-3 min-[900px]:columns-4 min-[1200px]:columns-5">
+          <div className="columns-2 gap-3 min-[640px]:columns-3 min-[900px]:columns-4">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="mb-3 break-inside-avoid">
                 <div className="skeleton h-40 rounded-lg" />
@@ -178,7 +178,7 @@ export function DiscoverPane({ mobileFullWidth = false }: { mobileFullWidth?: bo
         ) : articles.length === 0 ? (
           <p className="py-10 text-center text-callout text-fg/50">暂时没有可推荐的文章</p>
         ) : (
-          <div className="columns-2 gap-3 [column-fill:balance] min-[640px]:columns-3 min-[900px]:columns-4 min-[1200px]:columns-5">
+          <div className="columns-2 gap-3 [column-fill:balance] min-[640px]:columns-3 min-[900px]:columns-4">
             {articles.map((entry) => (
               <div key={entry.id} className="mb-3 break-inside-avoid">
                 <div
