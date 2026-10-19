@@ -173,6 +173,8 @@ interface CardProps {
   entry: Entry;
   selected: boolean;
   dimRead: boolean;
+  /** The feed icon's dominant colour, used as the feed's theme tint. */
+  feedColor?: string;
   /** Loopback image proxy origin, or '' to load images directly. */
   imageProxy: string;
   /** The clicked element is where the detail modal grows out of (DESIGN.md §7.11). */
@@ -188,7 +190,7 @@ interface CardProps {
  * waterfall. The row's summary is dropped — the card is about the picture and
  * the title.
  */
-function EntryCard({ entry, selected, dimRead, imageProxy, onSelect, onContextMenu }: CardProps) {
+function EntryCard({ entry, selected, dimRead, feedColor, imageProxy, onSelect, onContextMenu }: CardProps) {
   const dimmed = dimRead && entry.read;
 
   return (
@@ -213,6 +215,7 @@ function EntryCard({ entry, selected, dimRead, imageProxy, onSelect, onContextMe
         referer={entry.url}
         seed={entry.feedTitle || entry.title}
         ratio={cardRatio(entry.id)}
+        color={feedColor}
         title={entry.title}
         fallback={<FeedIcon title={entry.feedTitle} iconUrl={entry.feedIcon} size={22} />}
       />
@@ -387,6 +390,12 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
 
   /** Waterfall card layout instead of timeline rows (DESIGN.md §7.7). */
   const masonry = settings.entryLayout === 'masonry';
+
+  /** Feed icon colours, so cards use the source's own theme tint. */
+  const feedColors = useMemo(
+    () => new Map(feeds.map((f) => [f.id, f.color] as const)),
+    [feeds],
+  );
 
   const handleMarkAll = () => {
     if (total === 0) {
@@ -665,6 +674,7 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
                     entry={entry}
                     selected={entry.id === selectedEntryId}
                     dimRead={settings.dimRead}
+                    feedColor={feedColors.get(entry.feedId)}
                     imageProxy={imageProxy}
                     onSelect={(e, el) => {
                       setDetailOrigin(detailOriginOf(el, e.imageUrl, e.url));

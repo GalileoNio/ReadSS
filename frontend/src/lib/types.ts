@@ -15,6 +15,8 @@ export interface Feed {
   siteUrl: string;
   description: string;
   iconUrl: string;
+  /** Dominant colour of the icon (#rrggbb), used as the feed's theme tint. */
+  color: string;
   categoryId: number;
   view: ViewKey;
   unread: number;

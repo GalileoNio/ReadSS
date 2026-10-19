@@ -41,6 +41,9 @@ type Feed struct {
 	SiteURL     string `json:"siteUrl"`
 	Description string `json:"description"`
 	IconURL     string `json:"iconUrl"`
+	// Color is the icon's dominant colour (#rrggbb): the feed's theme tint in
+	// cards. Empty when the icon could not be decoded (SVG/ICO/AVIF).
+	Color       string `json:"color"`
 	CategoryID  int64  `json:"categoryId"`
 	View        string `json:"view"`
 	Unread      int    `json:"unread"`

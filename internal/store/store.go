@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS feeds (
 	site_url      TEXT    NOT NULL DEFAULT '',
 	description   TEXT    NOT NULL DEFAULT '',
 	icon_url      TEXT    NOT NULL DEFAULT '',
+	color         TEXT    NOT NULL DEFAULT '',
 	category_id   INTEGER REFERENCES categories(id) ON DELETE SET NULL,
 	view          TEXT    NOT NULL DEFAULT 'articles',
 	sort_order    INTEGER NOT NULL DEFAULT 0,
@@ -151,6 +152,7 @@ func (s *Store) migrate() error {
 		{"entries", "comments_count", "INTEGER NOT NULL DEFAULT 0"},
 		{"entries", "comments_at", "INTEGER NOT NULL DEFAULT 0"},
 		{"feeds", "icon_at", "INTEGER NOT NULL DEFAULT 0"},
+		{"feeds", "color", "TEXT NOT NULL DEFAULT ''"},
 		{"comment_recipes", "asset_base", "TEXT NOT NULL DEFAULT ''"},
 	}
 
@@ -531,13 +533,13 @@ func (s *Store) DeleteCategory(id int64) error {
 
 /* ----------------------------------------------------------------- feeds */
 
-const feedCols = `f.id, f.title, f.url, f.site_url, f.description, f.icon_url,
+const feedCols = `f.id, f.title, f.url, f.site_url, f.description, f.icon_url, f.color,
 	COALESCE(f.category_id, 0), f.view, f.sort_order, f.last_fetched, f.error,
 	COALESCE((SELECT COUNT(*) FROM entries e WHERE e.feed_id = f.id AND e.read = 0), 0)`
 
 func scanFeed(rows interface{ Scan(...any) error }) (*model.Feed, error) {
 	f := &model.Feed{}
-	err := rows.Scan(&f.ID, &f.Title, &f.URL, &f.SiteURL, &f.Description, &f.IconURL,
+	err := rows.Scan(&f.ID, &f.Title, &f.URL, &f.SiteURL, &f.Description, &f.IconURL, &f.Color,
 		&f.CategoryID, &f.View, &f.SortOrder, &f.LastFetched, &f.Error, &f.Unread)
 	if err != nil {
 		return nil, err
@@ -1060,6 +1062,13 @@ func (s *Store) SetFeedIcon(id int64, icon string) error {
 // app does not retry a hopeless host on every launch.
 func (s *Store) TouchFeedIcon(id int64) error {
 	_, err := s.db.Exec(`UPDATE feeds SET icon_at = ? WHERE id = ?`, nowMS(), id)
+	return err
+}
+
+// SetFeedColor records the icon's dominant colour, the feed's theme tint. An
+// empty colour clears it; the frontend then falls back to a hash hue.
+func (s *Store) SetFeedColor(id int64, color string) error {
+	_, err := s.db.Exec(`UPDATE feeds SET color = ? WHERE id = ?`, color, id)
 	return err
 }
 

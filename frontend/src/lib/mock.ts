@@ -382,6 +382,9 @@ const feeds: Feed[] = FEED_SEEDS.map((s, index) => ({
   siteUrl: s.site,
   description: s.desc,
   iconUrl: '',
+  // Preview stand-in for the icon's dominant colour; production derives it from
+  // the inlined icon with feed.DominantColor.
+  color: `hsl(${(s.id * 53) % 360} 62% 52%)`,
   categoryId: s.categoryId,
   view: s.view,
   unread: 0,
@@ -727,6 +730,7 @@ const handlers: Record<string, (args: unknown[]) => unknown> = {
       siteUrl: `https://${host}`,
       description: '刚刚订阅的订阅源',
       iconUrl: '',
+      color: `hsl(${(id * 53) % 360} 62% 52%)`,
       categoryId: categoryId || 0,
       view: 'articles',
       unread: 0,

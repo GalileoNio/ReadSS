@@ -130,6 +130,11 @@ interface CardImageProps {
   ratio?: string;
   /** Seed for the blurred placeholder and for the no-image fallback. */
   seed: string;
+  /**
+   * The feed icon's dominant colour (#rrggbb). When present it is the feed's
+   * theme colour for this box; the hash hue is only the fallback.
+   */
+  color?: string;
   /** Drawn in the middle when there is no picture at all. */
   fallback?: ReactNode;
   /**
@@ -167,6 +172,7 @@ export function CardImage({
   referer,
   ratio = '4 / 3',
   seed,
+  color,
   fallback,
   title,
   hero = false,
@@ -178,12 +184,18 @@ export function CardImage({
 
   const url = proxiedImageURL(src || '', proxy, referer);
   const showImage = Boolean(url) && !failed;
-  // Text covers keep the same box and the feed's hue, but as a pale tint so the
-  // title stays readable in both themes: the hue is applied as alpha over the
-  // theme's own surface, not as an absolute colour.
+  // The feed's own colour wins: alpha tints keep the box readable on both
+  // themes. Only when the icon yields no colour do we fall back to the hash hue.
   const hue = hueOf(seed || '?');
-  const tint = `hsl(${hue} 58% 50% / 0.14)`;
-  const markInk = `hsl(${hue} 52% 42% / 0.34)`;
+  const tint = color
+    ? `color-mix(in srgb, ${color} 14%, transparent)`
+    : `hsl(${hue} 58% 50% / 0.14)`;
+  const markInk = color
+    ? `color-mix(in srgb, ${color} 46%, transparent)`
+    : `hsl(${hue} 52% 42% / 0.34)`;
+  const placeholder = color
+    ? `linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 62%, #000))`
+    : avatarGradient(seed || '?');
 
   return (
     <div
@@ -191,7 +203,7 @@ export function CardImage({
       data-hero-image={hero ? '' : undefined}
       style={
         showImage
-          ? { aspectRatio: ratio, backgroundImage: avatarGradient(seed || '?') }
+          ? { aspectRatio: ratio, backgroundImage: placeholder }
           : { aspectRatio: ratio, background: tint }
       }
       className={cn('relative w-full select-none overflow-hidden bg-cover bg-center', className)}
@@ -206,7 +218,7 @@ export function CardImage({
               'absolute inset-0 scale-110 bg-cover bg-center blur-xl transition-opacity duration-300',
               loaded ? 'opacity-0' : 'opacity-90',
             )}
-            style={{ backgroundImage: avatarGradient(seed || '?') }}
+            style={{ backgroundImage: placeholder }}
           />
           <img
             src={url}

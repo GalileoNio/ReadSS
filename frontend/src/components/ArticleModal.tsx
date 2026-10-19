@@ -44,6 +44,7 @@ export function ArticleModal() {
   const [tab, setTab] = useState<'article' | 'comments'>('article');
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
   const ghostRef = useRef<HTMLDivElement>(null);
   // Where the dialog comes from. Captured once, on open, so closing can return
   // to the same place even after the store value is consumed.
@@ -107,10 +108,18 @@ export function ArticleModal() {
     const dx = origin.card.x - target.x;
     const dy = origin.card.y - target.y;
 
+    // The drop shadow is animated explicitly: left to the CSS class it would
+    // scale with the panel's transform and then vanish the instant the dialog
+    // unmounts, which reads as a jump at the end of the exit.
+    const targetShadow = getComputedStyle(panel).boxShadow;
+
     panel.style.transition = 'none';
     panel.style.transformOrigin = 'top left';
     panel.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
     panel.style.opacity = '0';
+    if (targetShadow && targetShadow !== 'none') {
+      panel.style.boxShadow = '0 0 0 0 rgba(0, 0, 0, 0)';
+    }
 
     // Force the start state through style/layout before flipping to the final
     // one; without this the browser has never painted the scaled state and the
@@ -118,9 +127,12 @@ export function ArticleModal() {
     void panel.offsetWidth;
 
     panel.style.transition =
-      'transform 420ms cubic-bezier(0.22, 0.8, 0.24, 1), opacity 200ms ease-out';
+      'transform 420ms cubic-bezier(0.22, 0.8, 0.24, 1), opacity 200ms ease-out, box-shadow 420ms ease-out';
     panel.style.transform = 'translate(0px, 0px) scale(1)';
     panel.style.opacity = '1';
+    if (targetShadow && targetShadow !== 'none') {
+      panel.style.boxShadow = targetShadow;
+    }
   }, [reducedMotion, setDetailOrigin]);
 
   /* Fly the card picture into the detail hero as soon as this article's hero
@@ -261,21 +273,36 @@ export function ArticleModal() {
     const hero = panel?.querySelector<HTMLElement>('[data-hero-image]');
     const heroRect = hero ? hero.getBoundingClientRect() : null;
 
+    // The dimming behind the dialog has to leave with the dialog: it used to
+    // stay fully opaque until the unmount frame, which is the hard "shadow
+    // snaps off" that the exit was showing.
+    let backdropMs = 0;
+    const backdrop = backdropRef.current;
+    if (backdrop && !reducedMotion) {
+      backdrop.style.transition = 'opacity 260ms ease-in';
+      backdrop.style.opacity = '0';
+      backdropMs = 260;
+    }
+
     let panelMs = 0;
     if (panel && origin && !reducedMotion) {
       const target = panel.getBoundingClientRect();
       const scale = Math.max(0.05, Math.min(1, origin.card.width / target.width));
       const dx = origin.card.x - target.x;
       const dy = origin.card.y - target.y;
-      panel.style.transition = `transform ${IMAGE_RETURN}ms cubic-bezier(0.4, 0, 0.2, 1), opacity 200ms ease-in`;
+      // Fade the shadow out with the panel; otherwise it pops away when the
+      // dialog unmounts, right at the end of the exit.
+      panel.style.transition = `transform ${IMAGE_RETURN}ms cubic-bezier(0.4, 0, 0.2, 1), opacity 240ms ease-in, box-shadow 300ms ease-in`;
       panel.style.transformOrigin = 'top left';
       panel.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
       panel.style.opacity = '0';
+      panel.style.boxShadow = '0 0 0 0 rgba(0, 0, 0, 0)';
       panelMs = IMAGE_RETURN;
     } else if (panel) {
-      panel.style.transition = 'opacity 160ms ease-in';
+      panel.style.transition = 'opacity 200ms ease-in, box-shadow 300ms ease-in';
       panel.style.opacity = '0';
-      panelMs = 160;
+      panel.style.boxShadow = '0 0 0 0 rgba(0, 0, 0, 0)';
+      panelMs = 200;
     }
 
     let imageMs = 0;
@@ -294,6 +321,11 @@ export function ArticleModal() {
       hero.style.opacity = '0';
       void ghostEl.offsetWidth;
 
+      // Fly the picture home **without fading it**: the card only reappears
+      // when the dialog unmounts, so a fading ghost would leave the slot empty
+      // for a frame or two right before the card pops back — that is the flash.
+      // Instead the ghost lands exactly on the card's picture box and is
+      // swapped for the (identical) card picture in the same frame.
       const ease = 'cubic-bezier(0.4, 0, 0.2, 1)';
       ghostEl.style.transition = [
         `left ${IMAGE_RETURN}ms ${ease}`,
@@ -301,18 +333,22 @@ export function ArticleModal() {
         `width ${IMAGE_RETURN}ms ${ease}`,
         `height ${IMAGE_RETURN}ms ${ease}`,
         `border-radius ${IMAGE_RETURN}ms ease`,
-        'opacity 200ms ease-in 160ms',
       ].join(', ');
       ghostEl.style.left = `${to.x}px`;
       ghostEl.style.top = `${to.y}px`;
       ghostEl.style.width = `${to.width}px`;
       ghostEl.style.height = `${to.height}px`;
       ghostEl.style.borderRadius = '8px';
-      ghostEl.style.opacity = '0';
-      imageMs = IMAGE_RETURN + 40;
+      imageMs = IMAGE_RETURN;
     }
 
-    window.setTimeout(() => void openEntry(null), Math.max(panelMs, imageMs));
+    // Unmount after the slowest exit animation (panel, picture, backdrop). The
+    // unmount and the card's reappearance happen in the same commit, so the
+    // picture never has a frame without an owner.
+    window.setTimeout(
+      () => void openEntry(null),
+      Math.max(panelMs, imageMs, backdropMs),
+    );
   };
   closeFn.current = close;
 
@@ -368,6 +404,7 @@ export function ArticleModal() {
       aria-label="文章详情"
     >
       <div
+        ref={backdropRef}
         className="absolute inset-0 animate-fade-in bg-black/50 backdrop-blur-sm"
         onClick={close}
         aria-hidden="true"

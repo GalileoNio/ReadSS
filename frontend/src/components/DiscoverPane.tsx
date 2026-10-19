@@ -18,7 +18,7 @@ import { CardImage, FeedIcon, IconButton, Spinner } from './primitives';
  * AddFeedByUrl path, so nothing is special-cased.
  */
 export function DiscoverPane({ mobileFullWidth = false }: { mobileFullWidth?: boolean }) {
-  const { imageProxy, openEntry, reloadSubscriptions } = useApp();
+  const { feeds, imageProxy, openEntry, reloadSubscriptions } = useApp();
 
   const { setDiscoverOpen, pushToast, setDetailOrigin } = useUI();
 
@@ -219,6 +219,7 @@ export function DiscoverPane({ mobileFullWidth = false }: { mobileFullWidth?: bo
                     referer={entry.url}
                     seed={entry.feedTitle || entry.title}
                     ratio={cardRatio(entry.id)}
+                    color={feeds.find((f) => f.id === entry.feedId)?.color}
                     title={entry.title}
                     fallback={
                       <FeedIcon title={entry.feedTitle} iconUrl={entry.feedIcon} size={22} />

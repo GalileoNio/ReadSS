@@ -284,7 +284,7 @@ h-10 border-b border-border px-4
 
 | 语义 | 图标 | 说明 |
 | --- | --- | --- |
-| 品牌标记 | `Rss` | 启动骨架屏、悬浮切换器「所有订阅源」 |
+| 品牌标记 | 应用图标（`build/icons/appicon.svg`） | 启动骨架屏、窗口 / 任务栏与浏览器标签，见 §7.11 |
 | 视图「首页」 | `AnimatedHomeIcon`（`House` 外轮廓 + 笑脸） | 列表栏头部的视图胶囊组，见 §7.5 |
 | 视图「文章」 | `AnimatedArticlesIcon`（`AlignLeft` 基形） | 动效版见 §7.5 |
 | 视图「社交」 | `AnimatedSocialIcon`（`AtSign` 基形） | 动效版见 §7.5 |
@@ -473,8 +473,15 @@ h-10 border-b border-border px-4
 - **模糊占位 → 清晰**：框底是该订阅源的确定性渐变（`avatarGradient`）放大 + `blur-xl`；
   图片 `opacity-0 blur-lg scale-105` → `opacity-100 blur-0 scale-100`（450ms，
   `object-cover` 裁切）。加载过程只影响清晰度，不影响布局。
+- **订阅源主题色（优先取图标主色）**：卡片的主题色 = `feed.color`——后端从**订阅源图标的
+  主色**提取（`internal/feed/color.go` 的 `DominantColor`，一次计算后存库；
+  PNG/JPEG/GIF 直接解码，ICO 走 PNG 内嵌或 DIB 解码，SVG 扫颜色字面量；
+  优先选饱和像素，避免白底把主色冲掉；单色图标只接受中间调，太浅则返回空）。
+  只有提取不到时才回退到按标题哈希的色相（`hueOf(seed)`）。前端经 `CardImage` 的 `color`
+  参数使用：文字封面底色 14% 透明度、引用符号 46%、图片占位渐变的起点也是它。
+  订阅源列表变化后用 `feeds` 建 `feedId → color` 映射，不再逐卡片查库。
 - **无图卡片（文字封面）**：`imageUrl` 为空时不留空框、不用 favicon 占位，改用文字封面：
-  1. 底色 = 该订阅源色相（`hueOf(seed)`）以 **14% 透明度**叠加在主题表面色上
+  1. 底色 = 该订阅源主题色（见上）以 **14% 透明度**叠加在主题表面色上
      （浅色主题是浅米色、深色主题是暗色调，同一订阅源永远同一色）；
   2. 左上角 `Quote` 符号（同色相、34% 透明度，比底色深一档），标题**居中**、
      `17px`、`font-semibold`、`line-clamp-6`，右下角一小段横线；
@@ -531,8 +538,16 @@ h-10 border-b border-border px-4
 - **窄屏（<1024px）**：模态窗全屏、无圆角；头部是「文章 / 评论」分段控件 + 关闭按钮。
   两个面板都保持挂载，仅用 `hidden` 切换，来回切 tab 不丢文章滚动位置。
 - **左列文章**（`Reader modal`）：保持小红书阅读顺序——主图、标题、正文；
-  浮动工具条（已读 / 星标 / 稍后读 / 复制 / 打开原站）与「全文 / 原文」切换不变；
   作者卡与属性胶囊**移到右列**，不在文章内重复。
+- **头图满幅**：主图**没有上、左、右边距**，也不圆角，紧贴文章列的三条边，
+  像笔记封面一样；浮动工具条改成它的浮层（`sticky top-0` + `-mb-[54px]` 抵消自身高度），
+  压在图片右上角，不再把图片往下推。
+- **工具条**：已读 / 星标 / 稍后读 / 复制 / 打开原站，外加**获取全文**
+  （`FileText`，获取中显示 `Spinner`）；文章内只保留「全文 / 原文」切换与
+  「重新获取 / 清除」，且位于头图下方。
+- **退出阴影与遮罩**：窗口阴影（300ms）、窗口透明度（240ms）和**背景遮罩**（260ms）一起过渡；
+  不能只让 `shadow-modal` 跟着 `transform` 缩小、然后连同遮罩在卸载那一帧整块消失。
+  细节见 §7.11「退场三件套」。
 - **右列**：顶部作者卡（`FeedIcon` 44px + 订阅源名 + 作者/域名 + 已订阅徽标 +
   属性胶囊 + 「查看订阅源」），下方是评论列（§4）。
 - **关闭与可访问性**：`role="dialog"` + `aria-modal`；Esc、遮罩、关闭按钮均可关闭；
@@ -577,6 +592,13 @@ h-10 border-b border-border px-4
   量主图当前矩形 → 浮动层放回主图位置 → 反向把盒子过渡回卡片图片矩形（360ms），
   同时面板反向收回卡片矩形，400ms 后 `openEntry(null)`；`closingRef` 防重复触发。
   落地后的清理定时器必须判断 `closingRef`，否则会在回程途中把浮动层 `display: none`。
+- **退场三件套必须一起过渡**（任何一件漏了都会读成“一下子取消”）：
+  1. 窗口 `box-shadow` → `0 0 0 0 rgba(0,0,0,0)`（300ms）；
+  2. 窗口 `opacity` → 0（240ms）；
+  3. **背景遮罩**（`bg-black/50 backdrop-blur-sm`）`opacity` → 0（260ms）。
+     遮罩原本只有进场的 `animate-fade-in`，退场时一直不透明，直到卸载那一帧整块消失——
+     这才是“变暗突然被取消”的真正原因。
+  卸载定时器取面板、图片回程与遮罩三者的**最大值**；提前卸载会把最后一段动画切断。
 - **没有图片的卡片**（`imageUrl` 为空）：没有共享元素，退化为**面板 FLIP**——
   面板从卡片矩形缩放展开/收回（`transform-origin: top left`，380ms/320ms），
   此时先写起始样式、`void offsetWidth` 强制一次样式刷新再写结束样式，否则浏览器
@@ -584,3 +606,25 @@ h-10 border-b border-border px-4
 - **没有卡片来源**（命令面板/键盘）：两个矩形都没有，用原有的 `animate-scale-in`。
 - **降低动效**：`prefers-reduced-motion` 时不做飞行与 FLIP，主图/面板直接到位，
   浮层立即移除。
+
+### 7.12 应用图标
+
+应用图标是「橙色圆角瓦片 + 白色页面 + RSS 信号」：页面上的三条橙色短线代表文章，
+右上角的白色圆点与两道弧线代表 RSS。它同时承担窗口 / 任务栏、浏览器标签和启动骨架屏的品牌标记。
+
+- **唯一源文件**：`build/icons/appicon.svg`（1024 viewBox，透明圆角外角）。任何尺寸都从它派生，
+  不要在 16px / 32px 另画一套。
+- **派生资源**：
+  - `build/icons/appicon.ico`：16 / 24 / 32 / 48 / 64 / 128 / 256 多尺寸 Windows 图标；
+  - `build/icons/appicon-{16..1024}.png`：PNG 尺寸；
+  - `frontend/public/favicon.ico`、`appicon.svg`、`appicon-48.png`、`appicon-180.png`：
+    Vite 原样复制到 `dist/`，供浏览器标签和启动骨架屏使用；
+  - `rsrc_windows_amd64.syso`：把同一份 ICO 以资源 ID **1**（Explorer / 文件图标）和
+    **3**（Wails v3 窗口图标）嵌入 `ReadS.exe`。
+- **Wails 接入**：`main.go` 用 `//go:embed build/icons/appicon-256.png` 设置
+  `application.Options.Icon`，作为非 Windows 平台 / 关于框的回退；Windows 窗口从 ID 3 读取。
+- **缩小可读性**：16px 时只保留「白色页面 + 右侧信号点 / 短弧」，不要增加描边和小字；
+  页面与 RSS 的高对比是它能在任务栏辨认的原因。
+- **重新生成**：修改 `appicon.svg` 后运行
+  `node build/app-icon-render.mjs` → `python build/icons/build-icon.py`，再用
+  `build/icons/make-syso.ps1` 重建 `.syso`（或运行打包脚本），最后确认 exe 的关联图标。

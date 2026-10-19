@@ -31,6 +31,7 @@ import { useViewport } from '../hooks/useViewport';
 export function Reader({ modal = false }: { modal?: boolean }) {
   const {
     entry,
+    feeds,
     loadingEntry,
     settings,
     selectedEntryId,
@@ -128,7 +129,14 @@ export function Reader({ modal = false }: { modal?: boolean }) {
         >
         {/* Floating action bar ---------------------------------------- */}
         {entry && (
-          <div className="pointer-events-none sticky top-0 z-10 flex items-center justify-between gap-2 px-4 py-2">
+          <div
+            className={cn(
+              'pointer-events-none sticky top-0 z-10 flex items-center justify-between gap-2 px-4 py-2',
+              // In the modal the bar floats over the full-bleed hero instead of
+              // pushing it down: cancel its own layout height.
+              modal && '-mb-[54px]',
+            )}
+          >
             {isMobile && !modal ? (
               <button
                 type="button"
@@ -149,6 +157,15 @@ export function Reader({ modal = false }: { modal?: boolean }) {
                   onClick={() => setCommentsVisible(!commentsVisible)}
                 >
                   <MessageSquare size={15} />
+                </IconButton>
+              )}
+              {!entry.hasFullContent && (
+                <IconButton
+                  title={fetchingFullText ? '正在获取全文' : '获取全文'}
+                  disabled={fetchingFullText || !entry.url}
+                  onClick={() => void reExtract()}
+                >
+                  {fetchingFullText ? <Spinner size={14} /> : <FileText size={15} />}
                 </IconButton>
               )}
               <IconButton
@@ -198,82 +215,95 @@ export function Reader({ modal = false }: { modal?: boolean }) {
             </div>
         )}
 
-        {/* Mode switch: feed body vs extracted full text ---------------- */}
-        {entry && (
-          <div className={cn('mx-auto mb-1 flex w-full min-w-0 items-center gap-2 px-4', measure)}>
-            {entry.hasFullContent ? (
-              <>
-                <div className="flex shrink-0 gap-0.5 rounded-md bg-fill p-0.5">
-                  {(
-                    [
-                      ['full', '全文'],
-                      ['feed', '原文'],
-                    ] as const
-                  ).map(([mode, label]) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      onClick={() => setContentMode(mode)}
-                      className={cn(
-                        'rounded px-2 py-0.5 text-footnote font-medium transition-colors',
-                        contentMode === mode
-                          ? 'bg-background text-fg shadow-sm'
-                          : 'text-fg/50 hover:text-fg/85',
-                      )}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <span className="min-w-0 flex-1 truncate" />
-                <button
-                  type="button"
-                  className="btn shrink-0"
-                  disabled={fetchingFullText}
-                  onClick={() => void reExtract()}
-                >
-                  {fetchingFullText ? <Spinner size={13} /> : <RefreshCw size={13} />}
-                  重新获取
-                </button>
-                <button
-                  type="button"
-                  className="btn shrink-0"
-                  onClick={() => void revertFullText()}
-                >
-                  清除
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                className="btn btn-accent"
-                disabled={fetchingFullText || !entry.url}
-                onClick={() => void reExtract()}
-              >
-                <FileText size={14} />
-                {fetchingFullText ? '正在获取…' : '获取全文'}
-              </button>
-            )}
-          </div>
-        )}
-
         {loadingEntry && !entry ? (
           <ReaderSkeleton wide={modal} />
         ) : entry ? (
           <article className="relative w-full min-w-0 overflow-hidden pb-10">
+            {/* In the modal the hero is full-bleed: no top, left or right margin
+                and no rounded corners, so it reads as the note's cover rather
+                than an inline picture. The floating toolbar sits over it. */}
+            {modal && entry.imageUrl && (
+              <CardImage
+                src={entry.imageUrl}
+                proxy={imageProxy}
+                referer={entry.url}
+                seed={entry.feedTitle || entry.title}
+                ratio="16 / 9"
+                color={feeds.find((f) => f.id === entry.feedId)?.color}
+                hero
+                instant
+                className="w-full"
+              />
+            )}
             {/* Width is relative to the pane, not the viewport: `w-full` caps
                 the column and `max-w` only takes effect on a wide window. */}
             <div className={cn('mx-auto w-full min-w-0 px-4', measure)}>
-              {/* Title block, in Xiaohongshu's note-detail order: hero image,
-                  title, author card, then meta chips. */}
-              <div className="mt-5 flex flex-col gap-3">
-                {entry.imageUrl && (
+              {/* Mode switch: feed body vs extracted full text. It lives inside
+                  the article so the modal's hero can stay flush with the top. */}
+              {entry.hasFullContent && (
+                <div
+                  className={cn(
+                    'flex min-w-0 items-center gap-2',
+                    modal && entry.imageUrl ? 'mt-4' : 'mt-6',
+                  )}
+                >
+                  <div className="flex shrink-0 gap-0.5 rounded-md bg-fill p-0.5">
+                    {(
+                      [
+                        ['full', '全文'],
+                        ['feed', '原文'],
+                      ] as const
+                    ).map(([mode, label]) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setContentMode(mode)}
+                        className={cn(
+                          'rounded px-2 py-0.5 text-footnote font-medium transition-colors',
+                          contentMode === mode
+                            ? 'bg-background text-fg shadow-sm'
+                            : 'text-fg/50 hover:text-fg/85',
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="min-w-0 flex-1 truncate" />
+                  <button
+                    type="button"
+                    className="btn shrink-0"
+                    disabled={fetchingFullText}
+                    onClick={() => void reExtract()}
+                  >
+                    {fetchingFullText ? <Spinner size={13} /> : <RefreshCw size={13} />}
+                    重新获取
+                  </button>
+                  <button
+                    type="button"
+                    className="btn shrink-0"
+                    onClick={() => void revertFullText()}
+                  >
+                    清除
+                  </button>
+                </div>
+              )}
+              {/* Title block, in Xiaohongshu's note-detail order: title, author
+                  card, then meta chips (the modal's hero is above). */}
+              <div
+                className={cn(
+                  'flex flex-col gap-3',
+                  modal ? (entry.imageUrl || entry.hasFullContent ? 'mt-4' : 'mt-14') : 'mt-5',
+                )}
+              >
+                {entry.imageUrl && !modal && (
                   <CardImage
                     src={entry.imageUrl}
                     proxy={imageProxy}
                     referer={entry.url}
                     seed={entry.feedTitle || entry.title}
                     ratio="16 / 9"
+                    color={feeds.find((f) => f.id === entry.feedId)?.color}
                     hero
                     instant
                     className="rounded-xl"

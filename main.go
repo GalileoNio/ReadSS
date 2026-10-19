@@ -29,6 +29,9 @@ const version = "1.0.0"
 //go:embed all:frontend/dist
 var assets embed.FS
 
+//go:embed build/icons/appicon-256.png
+var appIcon []byte
+
 func main() {
 	showVersion := flag.Bool("version", false, "print the version and exit")
 	selfTest := flag.Bool("selftest", false, "run headless backend checks and exit")
@@ -38,6 +41,7 @@ func main() {
 	testCommentsFlag := flag.String("test-comments", "", "run the comment extractor over a saved HTML file, then exit")
 	fetchCommentsFlag := flag.Int64("fetch-comments", 0, "fetch and store comments for an entry id, then exit")
 	recommendFlag := flag.Bool("recommend", false, "print recommended articles and subscriptions, then exit")
+	colorsFlag := flag.Bool("colors", false, "print each feed's icon colour, then exit")
 	flag.Parse()
 
 	if *showVersion {
@@ -81,6 +85,14 @@ func main() {
 	if *fetchCommentsFlag > 0 {
 		if err := runFetchComments(dataDir, *fetchCommentsFlag); err != nil {
 			fmt.Fprintln(os.Stderr, "fetch-comments failed:", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	if *colorsFlag {
+		if err := runColors(dataDir); err != nil {
+			fmt.Fprintln(os.Stderr, "colors failed:", err)
 			os.Exit(1)
 		}
 		return
@@ -132,6 +144,7 @@ func main() {
 	app := application.New(application.Options{
 		Name:        "ReadS",
 		Description: "A Folo-inspired RSS reader",
+		Icon:        appIcon,
 		Services:    []application.Service{application.NewService(svc)},
 		Assets: application.AssetOptions{
 			Handler:    application.BundledAssetFileServer(assets),
@@ -303,9 +316,59 @@ func runSelfTest(dataDir string) error {
 	if err := feed.SelfTestRecommend(); err != nil {
 		return err
 	}
+	if err := feed.SelfTestDominantColor(); err != nil {
+		return err
+	}
 
 	fmt.Printf("selftest finished in %s\n", time.Since(started).Round(time.Millisecond))
 	return nil
+}
+
+// runColors prints the colour each feed's icon yields, so the extractor can be
+// checked against the real library without launching the window.
+func runColors(dataDir string) error {
+	st, err := store.Open(filepath.Join(dataDir, "reads.db"))
+	if err != nil {
+		return fmt.Errorf("open store: %w", err)
+	}
+	defer st.Close()
+
+	feeds, err := st.Feeds()
+	if err != nil {
+		return err
+	}
+	for _, f := range feeds {
+		stored := f.Color
+		derived := ""
+		if strings.HasPrefix(f.IconURL, "data:image/") {
+			derived = feed.DominantColor(f.IconURL)
+		}
+		fmt.Printf("%-24s stored=%-8s derived=%-8s %-16s %d bytes\n", f.Title, dash(stored), dash(derived), iconMime(f.IconURL), len(f.IconURL))
+	}
+	return nil
+}
+
+// iconMime reports the media type of an inlined icon, for the --colors table.
+func iconMime(dataURI string) string {
+	if !strings.HasPrefix(dataURI, "data:") {
+		return "none"
+	}
+	end := strings.IndexByte(dataURI, ';')
+	if end < 0 {
+		end = strings.IndexByte(dataURI, ',')
+	}
+	if end < 0 {
+		return "none"
+	}
+	return dataURI[5:end]
+}
+
+// dash renders an empty string visibly in the --colors table.
+func dash(s string) string {
+	if s == "" {
+		return "-"
+	}
+	return s
 }
 
 // runRecommend prints what the discover pane would show, so the ranking and the

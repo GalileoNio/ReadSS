@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { AlertCircle, Rss, X } from 'lucide-react';
+import { AlertCircle, X } from 'lucide-react';
 import { useApp } from './store/app';
 import { useUI } from './store/ui';
 import { useBackendEvents, useTheme } from './hooks/useAppEffects';
@@ -42,9 +42,14 @@ export default function App() {
       {!ready && (
         <div className="flex h-full w-full items-center justify-center">
           <div className="flex flex-col items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent text-white">
-              <Rss size={20} strokeWidth={2.5} />
-            </span>
+            <img
+              src="/appicon.svg"
+              alt=""
+              width={44}
+              height={44}
+              className="h-11 w-11 select-none"
+              draggable={false}
+            />
             <Spinner size={16} className="text-fg/25" />
           </div>
         </div>

@@ -105,6 +105,7 @@ func (s *Service) ServiceStartup(ctx context.Context, _ application.ServiceOptio
 		ctx = context.Background()
 	}
 	s.ctx, s.cancel = context.WithCancel(ctx)
+	s.backfillFeedColors()
 	s.startScheduler()
 	return nil
 }
@@ -424,6 +425,7 @@ func (s *Service) fetchAndStoreIcon(ctx context.Context, feedID int64, feedImage
 	if strings.HasPrefix(feedImage, "http") {
 		if inlined, err := s.fetcher.InlineImage(ctx, feedImage, feedImageBudget); err == nil {
 			if err := s.store.SetFeedIcon(feedID, inlined); err == nil {
+				s.storeFeedColor(feedID, inlined)
 				s.emit(EventDataChanged, map[string]any{"reason": "feed-icon", "feedId": feedID})
 			}
 			return
@@ -442,6 +444,7 @@ func (s *Service) fetchAndStoreIcon(ctx context.Context, feedID int64, feedImage
 			continue
 		}
 		if err := s.store.SetFeedIcon(feedID, icon); err == nil {
+			s.storeFeedColor(feedID, icon)
 			s.emit(EventDataChanged, map[string]any{"reason": "feed-icon", "feedId": feedID})
 		}
 		return
@@ -449,6 +452,30 @@ func (s *Service) fetchAndStoreIcon(ctx context.Context, feedID int64, feedImage
 
 	// Nothing found: record the attempt so it is not retried immediately.
 	_ = s.store.TouchFeedIcon(feedID)
+}
+
+// storeFeedColor derives the icon's dominant colour and persists it. The
+// colour is what cards use as the feed's theme tint, so a feed with a known
+// icon should not have to fall back to a hash of its title.
+func (s *Service) storeFeedColor(feedID int64, iconDataURI string) {
+	if color := feed.DominantColor(iconDataURI); color != "" {
+		_ = s.store.SetFeedColor(feedID, color)
+	}
+}
+
+// backfillFeedColors fills in colours for icons that were cached by an older
+// build (their data URI is already in the database, so no network is needed).
+func (s *Service) backfillFeedColors() {
+	feeds, err := s.store.Feeds()
+	if err != nil {
+		return
+	}
+	for _, f := range feeds {
+		if f.Color != "" || !strings.HasPrefix(f.IconURL, "data:image/") {
+			continue
+		}
+		s.storeFeedColor(f.ID, f.IconURL)
+	}
 }
 
 // FetchFeedIcon re-resolves a single feed's icon on demand.
