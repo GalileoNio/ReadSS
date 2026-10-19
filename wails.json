@@ -1,0 +1,17 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "ReadS",
+  "outputfilename": "ReadS",
+  "frontend:install": "pnpm install",
+  "frontend:build": "pnpm run build",
+  "frontend:dev:watcher": "pnpm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "ReadS"
+  },
+  "info": {
+    "productName": "ReadS",
+    "productVersion": "1.0.0",
+    "comments": "A Folo-inspired RSS reader built with Wails + Go"
+  }
+}

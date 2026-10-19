@@ -1,0 +1,18 @@
+# Build outputs
+/build/bin/
+/build/appdata*/
+/build/shots/
+/build/tmp
+
+# Local toolchain, caches and preview profiles (downloaded by scripts/)
+/.toolchain/
+
+# Frontend
+/frontend/node_modules/
+/frontend/dist/
+
+# Editor / OS noise
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

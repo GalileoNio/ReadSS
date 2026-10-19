@@ -1,0 +1,17 @@
+# pnpm settings live here in pnpm 10+ (the package.json "pnpm" field is no
+# longer read).
+
+# esbuild's postinstall script is deliberately NOT run: it spawns a child
+# process with piped stdio to validate its binary, which the DSH Windows
+# sandbox blocks with EPERM. The executable itself is provided by the
+# @esbuild/win32-x64 optional dependency, so the script is unnecessary.
+allowBuilds:
+  esbuild: false
+
+# Use a flat, npm-style node_modules. Vite's pre-bundled dependencies resolve
+# their own transitive packages by bare specifier, which pnpm's default
+# isolated store layout does not satisfy here.
+nodeLinker: hoisted
+
+# Do not implicitly re-run `pnpm install` before every `pnpm run`.
+verifyDepsBeforeRun: false

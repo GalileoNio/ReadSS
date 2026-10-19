@@ -1,0 +1,11 @@
+﻿import { readFile, writeFile } from 'node:fs/promises';
+const p = 'build/view-icon-lab.mjs';
+let s = await readFile(p, 'utf8');
+s = s.replace('note: \'三行文字从左到右依次写出\'', "note: '三行文字依次展开'");
+s = s.replace('d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"', 'd="M6 21 15.086 11.914a2 2 0 0 1 2.828 0L21 15"');
+s = s.replace('.vi-line, .vi-photo-hill { stroke-dasharray: 1; stroke-dashoffset: 0; }', '.vi-photo-hill { stroke-dasharray: 1; stroke-dashoffset: 0; }');
+s = s.replace('0% { opacity: .25; transform: translate(var(--dx,0), var(--dy,0)) scale(.45); }', '0% { opacity: 1; transform: translate(var(--dx,0), var(--dy,0)) scale(.62); }');
+s = s.replace('@keyframes view-article-write { 0% { stroke-dashoffset: 1; } 100% { stroke-dashoffset: 0; } }', '@keyframes view-article-write { 0% { opacity: .45; transform: scaleX(.15); } 55% { opacity: 1; transform: scaleX(1.06); } 100% { opacity: 1; transform: scaleX(1); } }');
+s = s.replace('    .anim .vi-line { animation: view-article-write 460ms', '    .anim .vi-line { transform-box: fill-box; transform-origin: 0% 50%; animation: view-article-write 460ms');
+await writeFile(p, s);
+console.log('patched');
