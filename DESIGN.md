@@ -285,11 +285,12 @@ h-10 border-b border-border px-4
 | 语义 | 图标 | 说明 |
 | --- | --- | --- |
 | 品牌标记 | 应用图标（`build/icons/appicon.svg`） | 启动骨架屏、窗口 / 任务栏与浏览器标签，见 §7.11 |
-| 视图「首页」 | `AnimatedHomeIcon`（`House` 外轮廓 + 笑脸） | 列表栏头部的视图胶囊组，见 §7.5 |
 | 视图「文章」 | `AnimatedArticlesIcon`（`AlignLeft` 基形） | 动效版见 §7.5 |
 | 视图「社交」 | `AnimatedSocialIcon`（`AtSign` 基形） | 动效版见 §7.5 |
 | 视图「图片」 | `AnimatedPicturesIcon`（`Image` 基形） | 动效版见 §7.5 |
 | 视图「视频」 | `AnimatedVideosIcon`（`Video` 基形） | 动效版见 §7.5 |
+| 视图「音频」 | `AnimatedAudioIcon`（`AudioLines` 基形，三条电平柱） | 播客订阅；动效版见 §7.5 |
+| 智能列表「首页」 | `AnimatedHomeIcon`（`House` 外轮廓 + 笑脸） | 智能列表组的第一项（首页/未读/星标/稍后读/今天），见 §7.5 |
 | 列表布局切换 | `LayoutGrid` / `LayoutList` | 搜索行右侧；见 §7.7 |
 | 智能列表「未读」 | `SmartUnreadIcon`（`Inbox` 基形） | 列表栏头部的圆形筛选组，见 §7.5 |
 | 智能列表「星标」 | `SmartStarredIcon`（`Star` 基形） | 与星标动作、角标属同一图标族；动作与角标保持静态 `Star` |
@@ -335,36 +336,53 @@ h-10 border-b border-border px-4
 一个 `rounded-full` 容器包住一组图标，只有选中项展开显示名字。
 
 ```
-[订阅源/分组标题]  ( ◯ 首页 count ) ◯ ◯ ◯ ◯   ( ◯ 未读 count ) ◯ ◯ ◯        ← 视图组 | 智能列表组
+[订阅源/分组标题]  ( ◯ 文章 count ) ◯ ◯ ◯ ◯   ( ◯ 首页 count ) ◯ ◯ ◯ ◯        ← 视图组 | 智能列表组
 ```
 
-- **视图组**：首页 / 文章 / 社交 / 图片 / 视频（`AnimatedIcons`，12px）。
+- **视图组（内容分类）**：文章 / 社交 / 图片 / 视频 / 音频（`AnimatedIcons`，12px）。
   选中项展开为 `图标 + 名字 (+ 计数)`；视图自身的识别色（`VIEWS[].color`）只染**图标**，
   文字与容器保持中性。
-- **智能列表组**：未读 / 星标 / 稍后读 / 今天（`AnimatedIcons`，13px），规则见下。
+- **每个分类承载一类订阅**（对齐 Folo）：文章 = RSS 订阅；社交 = 社交媒体订阅
+  （Mastodon / 微博 / 知乎等）；图片 = 图片源订阅（摄影、图集）；视频 = 视频网站更新
+  （哔哩哔哩 / YouTube / Vimeo…）；音频 = 播客订阅。
+  新订阅的分类由 `feed.Classify` 自动判断：先看订阅地址的域名（`videoHosts` / `audioHosts` /
+  `socialHosts`），再看条目内容（`<audio>` 优先于 `<video>`，纯图片条目归图片），
+  都判断不出来就留在「文章」。判断结果可以在订阅源右键菜单里手动改（`归类到「…」`，
+  调 `SetFeedView`）。启动时 `backfillFeedViews` 只纠正仍停在历史默认值
+  （`articles` / `social`）的订阅，用户手选过分类（图片/视频/音频）不会被覆盖。
+- **智能列表组**：首页 / 未读 / 星标 / 稍后读 / 今天（`AnimatedIcons`，13px），规则见下。
+  `首页` 是"全部内容"的入口（`selectView('all')`），它不再属于视图组。
 - **容器**：两组都用 `rounded-full border border-border/70 bg-fill/50 p-0.5`；
   按钮 `h-5 w-5`（选中时 `px-1.5`），组内 `gap-0.5`，两组之间 `gap-2`，作为一个整体靠左。
 - **只有选中项显示名字**：未选中一律纯图标（带 `title` 悬停提示），选中项底色
   `bg-background`、`shadow-sm`。名字 `text-[0.65rem]`，计数 `text-[0.6rem] tabular-nums text-fg/50`，
   且受 `settings.sidebarShowUnreadCount` 控制。
+- **手机布局：智能列表组变成悬浮底栏**。`isCompact`（<1024px）时智能列表组从头部移出，
+  渲染为 `fixed inset-x-0 bottom-0` 的胶囊（`bg-background/70 backdrop-blur-xl` + `shadow-pop`，
+  与底部悬浮条同一套材质 §7.6）：按钮 `h-9`、图标 17px，选中项展开为
+  `图标 + 名字 + 计数`，未选中均分整行。头部只保留视图组（仍可横向滑动）；
+  订阅源切换条随之上移到 `bottom-20`，列表滚动区底部留白加到 `pb-32`（避免被两条悬浮条遮住）。
 - **标题只在订阅源 / 分组时出现**：视图与智能列表的选中态已经由展开项表达，再显示标题会重复。
-- **窄宽度**：两组放在一个可横向滑动的容器里（`no-scrollbar overflow-x-auto`），
+- **窄宽度**：视图组放在一个可横向滑动的容器里（`no-scrollbar overflow-x-auto`），
   列宽 ≥ 约 420px 时全部可见且无滚动；更窄时滑动查看，不挤压右侧操作图标。
 - **命中区与可访问性**：`aria-pressed` 表示选中；`data-view` / `data-smart` 是稳定选择器，
-  `data-active="true"` 供动效规则使用；智能列表按钮另带 `smart-row` 类名。
+  `data-active="true"` 供动效规则使用；智能列表按钮另带 `smart-row` 类名，
+  首页按钮带 `view-tab` 类名（它画的是 `.view-icon`）。这两个类名是 `index.css` 动效规则的
+  **唯一挂载点**：少一个，图标就退化成静态图标且不报错，所以 `check-icons.mjs` 会直接让构建失败。
 - **没有侧边栏**：视图与智能列表在列表栏头部，分组与订阅源在底部悬浮面板，
   搜索与设置在悬浮条右侧；`check-icons.mjs` 只认 `EntryList.tsx` 里的这两组控件。
 
-视图组与智能列表的九枚图标都来自 `frontend/src/components/AnimatedIcons.tsx`。
-八枚沿用 §7.1 的 lucide 基形；首页是 `House` 外轮廓加笑脸的自绘变体。它们都只增加一次性的动效。
+视图组与智能列表的十枚图标都来自 `frontend/src/components/AnimatedIcons.tsx`。
+九枚沿用 §7.1 的 lucide 基形；首页是 `House` 外轮廓加笑脸的自绘变体。它们都只增加一次性的动效。
 
 | 组 | 语义 | 组件 | 基形 | 动效语言 |
 | --- | --- | --- | --- | --- |
-| 视图 | 首页 | `AnimatedHomeIcon` | `House` + 笑脸 | 房子有重量地弹跳、落地眨眼、笑弧展开 |
 | 视图 | 文章 | `AnimatedArticlesIcon` | `AlignLeft` | 三行文字从左侧边距依次展开 |
 | 视图 | 社交 | `AnimatedSocialIcon` | `AtSign` | @ 核心弹一下，一圈信号向外扩散 |
 | 视图 | 图片 | `AnimatedPicturesIcon` | `Image` | 太阳弹出，山线自左向右绘制 |
 | 视图 | 视频 | `AnimatedVideosIcon` | `Video` | 镜头张开，录制点闪两下 |
+| 视图 | 音频 | `AnimatedAudioIcon` | `AudioLines` | 三条电平柱依次升起（`view-audio-bar`） |
+| 智能列表 | 首页 | `AnimatedHomeIcon` | `House` + 笑脸 | 房子有重量地弹跳、落地眨眼、笑弧展开 |
 | 智能列表 | 未读 | `SmartUnreadIcon` | `Inbox` | 新条目小点落入托盘，托盘承住、下沉回弹 |
 | 智能列表 | 星标 | `SmartStarredIcon` | `Star` | 星星收缩再放大、内填闪一下、两粒星芒 |
 | 智能列表 | 稍后读 | `SmartReadLaterIcon` | `Bookmark` | 书签落下，像悬挂物一样摆动后停稳 |
@@ -461,10 +479,15 @@ h-10 border-b border-border px-4
 - **入口**：搜索行最右侧的 `IconButton`（当前是列表时显示 `LayoutGrid`，标题「瀑布流模式」；
   当前是瀑布流时显示 `LayoutList`，标题「列表模式」），选中态用 `active`。
   放在搜索行而不是栏头，是为了不挤压栏头那两组胶囊筛选。
-- **瀑布流容器**：`columns-2 gap-3 [column-fill:balance]`，每个卡片外层
-  `mb-3 break-inside-avoid`，这是 CSS 多列实现的真瀑布流（顺序按列自上而下）。
-  列数随视口自适应：`<640px` 两列、`≥640px` 三列、`≥900px` 四列、`≥1200px` 五列；
-  **最少两列、最多五列**。
+- **瀑布流容器**：**按列分组的 flex 布局**，不是 CSS 多列。
+  根节点 `flex items-start gap-3`（`data-wall="masonry"`），每列
+  `flex min-w-0 flex-1 flex-col gap-3`（`data-column`），卡片按 `index % 列数` 分到各列
+  （外层 `data-entry-id` 是测试钩子）。
+  列数随容器宽度自适应：`<640px` 两列、`≥640px` 三列、`≥900px` 四列、`≥1200px` 五列
+  （`ResizeObserver` 监听滚动容器宽度）；**最少两列、最多五列**。
+  **为什么不用 CSS 多列**：`columns-*` 会在内容增加时重新平衡各列，
+  往下翻页（`loadMore` 追加）会让屏幕上所有卡片位移；分列后新增只会加在某列底部，
+  已有卡片位置不变（见 §7.13）。代价是列底不齐——这正是瀑布流的观感。
 - **卡片**：`overflow-hidden rounded-lg border border-border bg-fill/20`，图片区统一用
   `CardImage`（`components/primitives.tsx`）。
 - **图片框先定尺寸**：`aspectRatio` 由 `cardRatio(entry.id)` 决定（`4/3`、`1/1`、`16/9` 三档，
@@ -668,3 +691,57 @@ h-10 border-b border-border px-4
   瀑布流会重新分栏、卡片整体位移。
 - 瀑布流卡片在模态窗打开期间用 `visibility: hidden` 保留占位（§7.11），
   所以“卡片变成模态窗”也不会让相邻卡片移动。
+- **翻页只向下追加**：`loadMore` 往 `entries` 末尾追加，瀑布流按列渲染（§7.7），
+  新卡片只出现在各列底部，已有卡片位置不变；不要改回 CSS 多列（`columns-*` 会整体重排）。
+
+### 7.14 播客播放
+
+音频条目的播放闭环：抓取时识别音频，进度落库，列表 / 卡片 / 详情页都能开播，
+底部悬浮播放器跨页面持续播放。
+
+**数据**
+
+- `entries` 新增五列：`audio_url`、`audio_type`、`audio_duration`（秒）、
+  `audio_position`（毫秒）、`audio_played`。非播客条目五项均为空值 / 0。
+- 抓取时优先取 enclosure（MIME 为 `audio/*` 或扩展名是 mp3 / m4a / aac / ogg / opus / wav / flac），
+  没有 enclosure 时回退到正文里第一个安全的 `<audio>` / `<source src>`。
+- 时长来自 `itunes:duration`，同时接受纯秒数（`3723`）与 `h:mm:ss` / `m:ss`；
+  解析失败保持 0，等音频元数据加载后再补。
+- 带音频的条目会参与 `feed.Classify` 的音频判定（`<audio>` 优先于 `<video>`）。
+
+**播放状态**
+
+- 全局单例 `HTMLAudioElement`（`store/player.ts`），同一时间只播一集；
+  切换列表、打开文章、关闭详情都不会中断播放。
+- 续播：`audioPlayed` 为 false 且已存位置超过 2 秒时，从上次位置继续；
+  续播点在 `loadedmetadata` 后应用，避免部分格式在 `load()` 前不可 seek。
+- 进度保存：播放中每 6 秒写一次，暂停、切集、关闭播放器、页面卸载时各写一次。
+  距结尾 2 秒以内即视为听完；前端保存与后端 `SaveAudioProgress` 使用同一阈值。
+  听完会同时置 `audio_played` 与 `read`，未读数随之刷新。
+- **不重新加载列表**：进度保存只走本地 `applyPlayback`（§7.13），
+  完成时仅刷新订阅计数；`SavePlayback` 不发 `reads:data:changed`，
+  否则正在收听的列表会重置分页、卡片位移。
+- 倍速（0.75 / 1 / 1.25 / 1.5 / 1.75 / 2×）只存 `localStorage`
+  （`reads.podcast.rate`），属于设备偏好，不入库；静音是当前会话状态。
+
+**入口**
+
+- **列表行**：封面固定 80×80，中央播放 / 暂停按钮，底部一条当前进度；
+  元信息行显示 `AudioLines` 图标与当前播放位置（未播放时显示总时长）。
+- **瀑布流卡片**：封面右下角播放 / 暂停按钮，左下角时长胶囊。
+- **详情页**：标题下的 `EpisodePlayBar`，按钮文案随状态变化
+  （播放这一期 / 继续收听 / 暂停 / 重新收听），进度条可拖动，
+  底部一行显示「已听完」或「已听 x:xx / y:yy」。
+- **右键菜单**：音频条目提供「播放这一期 / 暂停播客」。
+
+**悬浮播放器**
+
+- 位置：`fixed inset-x-0`，桌面 `bottom-14`，手机 `bottom-[7.6rem]`
+  （让开智能列表底栏与订阅源切换器），`z-[60]`；内容 `max-w-3xl`，
+  `rounded-xl border bg-background/85 shadow-modal backdrop-blur-xl`。
+- 结构：封面（点击打开详情）+ 标题 / 订阅源 + 后退 15 秒 + 播放 / 暂停
+  （缓冲时显示 spinner）+ 前进 30 秒 + 静音 + 关闭；下一行是当前位置、进度条、
+  总时长与倍速按钮。±15/30 与静音在窄屏隐藏，保留播放、关闭与拖动。
+- 列表底部留白随播放器出现增加：桌面 `pb-16 → pb-44`，
+  手机 `pb-32 → pb-64`，保证最后一条不被遮挡。
+- 键盘 `Space` 在焦点不在输入框、按钮、链接等控件上时切换播放 / 暂停。

@@ -13,7 +13,8 @@ import (
 // sampleRSS is a small but complete RSS 2.0 document, including the hostile
 // markup the sanitiser is expected to strip.
 const sampleRSS = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
   <channel>
     <title>ReadS Test Feed</title>
     <link>https://example.com/</link>
@@ -25,6 +26,8 @@ const sampleRSS = `<?xml version="1.0" encoding="UTF-8"?>
       <author>ada@example.com (Ada Lovelace)</author>
       <pubDate>Mon, 02 Jan 2024 15:04:05 GMT</pubDate>
       <description>Short teaser for the first entry.</description>
+      <enclosure url="https://example.com/episode.mp3" type="audio/mpeg" length="123456"/>
+      <itunes:duration>1:02:03</itunes:duration>
       <content:encoded><![CDATA[
         <p>Hello <strong>world</strong>.</p>
         <script>alert('xss')</script>
@@ -85,6 +88,17 @@ func selftestStore(st *store.Store) error {
 	}
 	if first.ImageURL != "https://example.com/cover.jpg" {
 		return fmt.Errorf("[feed] image = %q, want the in-content cover", first.ImageURL)
+	}
+	if first.AudioURL != "https://example.com/episode.mp3" || first.AudioType != "audio/mpeg" {
+		return fmt.Errorf("[feed] audio enclosure = %q (%q)", first.AudioURL, first.AudioType)
+	}
+	if first.AudioDuration != 3723 {
+		return fmt.Errorf("[feed] audio duration = %d, want 3723", first.AudioDuration)
+	}
+	for raw, want := range map[string]int{"3723": 3723, "1:02:03": 3723, "03:07": 187, "": 0, "oops": 0} {
+		if got := feed.ParseDurationSeconds(raw); got != want {
+			return fmt.Errorf("[feed] ParseDurationSeconds(%q) = %d, want %d", raw, got, want)
+		}
 	}
 
 	// The sanitiser must remove script/style/iframe and javascript: URLs.
@@ -179,6 +193,39 @@ func selftestStore(st *store.Store) error {
 	}
 	if detail.ReadingMinutes < 1 {
 		return fmt.Errorf("[store] reading time = %d", detail.ReadingMinutes)
+	}
+
+	// Podcast progress: a partial position survives re-saving the feed, and
+	// reaching the end marks the episode played and read.
+	podcast := page.Entries[1]
+	if podcast.AudioURL != "https://example.com/episode.mp3" || podcast.AudioDuration != 3723 {
+		return fmt.Errorf("[store] podcast metadata lost: url=%q duration=%d",
+			podcast.AudioURL, podcast.AudioDuration)
+	}
+	if err := st.SaveAudioProgress(podcast.ID, 120_000, 3723, false); err != nil {
+		return fmt.Errorf("[store] save playback: %w", err)
+	}
+	if _, err := st.SaveEntries(f.ID, res.Items); err != nil {
+		return fmt.Errorf("[store] re-save after playback: %w", err)
+	}
+	progress, err := st.EntryDetail(podcast.ID)
+	if err != nil {
+		return fmt.Errorf("[store] playback detail: %w", err)
+	}
+	if progress.AudioPosition != 120_000 || progress.AudioPlayed {
+		return fmt.Errorf("[store] playback = %dms played=%v, want 120000ms played=false",
+			progress.AudioPosition, progress.AudioPlayed)
+	}
+	if err := st.SaveAudioProgress(podcast.ID, 3_722_000, 3723, false); err != nil {
+		return fmt.Errorf("[store] complete playback: %w", err)
+	}
+	finished, err := st.EntryDetail(podcast.ID)
+	if err != nil {
+		return fmt.Errorf("[store] finished detail: %w", err)
+	}
+	if !finished.AudioPlayed || !finished.Read {
+		return fmt.Errorf("[store] finished episode not marked played/read: played=%v read=%v",
+			finished.AudioPlayed, finished.Read)
 	}
 	return nil
 }

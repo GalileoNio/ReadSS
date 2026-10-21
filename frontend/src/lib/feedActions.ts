@@ -3,6 +3,7 @@
 // These used to live in Sidebar.tsx; they moved out when the group/feed list
 // relocated to the floating switcher at the bottom of the list column.
 import type { MenuItem } from '../store/ui';
+import { VIEWS } from './types';
 
 /** Opens a URL in the system browser through the Wails runtime. */
 export function openExternal(url: string) {
@@ -70,6 +71,21 @@ export function feedMenuItems(feed: import('../lib/types').Feed, actions: {
       },
     },
     { label: '刷新此订阅源', onSelect: () => void refresh([feed.id]) },
+    // Classification: the backend guesses a tab when subscribing (address +
+    // content); this is the manual override (DESIGN.md §7.5).
+    ...VIEWS.map((view) => ({
+      label: `归类到「${view.label}」`,
+      checked: feed.view === view.key,
+      separatorBefore: view.key === 'articles',
+      onSelect: () => {
+        void (async () => {
+          const { setFeedView } = await import('../lib/api');
+          await setFeedView(feed.id, view.key);
+          await reload();
+          actions.pushToast({ message: `已归类到「${view.label}」`, tone: 'success' });
+        })();
+      },
+    })),
     {
       label: '在浏览器中打开网站',
       separatorBefore: true,

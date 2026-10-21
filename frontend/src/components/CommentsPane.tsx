@@ -91,21 +91,27 @@ export function CommentsPane({
       <aside
         style={overlay || embedded ? undefined : { width }}
         className={cn(
-          'flex min-h-0 flex-col bg-background',
+          'flex flex-col bg-background',
           embedded
-            ? 'min-h-0 flex-1'
+            ? ''
             : overlay
-              ? 'fixed inset-y-0 right-0 z-40 w-full border-l border-border shadow-modal sm:w-[min(92vw,400px)]'
-              : 'relative z-10 shrink-0 border-l border-border',
+              ? 'fixed inset-y-0 right-0 z-40 min-h-0 w-full border-l border-border shadow-modal sm:w-[min(92vw,400px)]'
+              : 'relative z-10 min-h-0 shrink-0 border-l border-border',
         )}
       >
-        <header className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-4">
-          <h2 className="flex items-center gap-1.5 text-headline font-semibold text-fg">
-            <MessageSquare size={15} className="shrink-0 text-fg/50" />
-            评论
-          </h2>
-        </header>
-        <div className="space-y-4 p-4">
+        {embedded ? (
+          <div className="px-6 pt-4">
+            <div className="skeleton h-3 w-24 rounded" />
+          </div>
+        ) : (
+          <header className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-4">
+            <h2 className="flex items-center gap-1.5 text-headline font-semibold text-fg">
+              <MessageSquare size={15} className="shrink-0 text-fg/50" />
+              评论
+            </h2>
+          </header>
+        )}
+        <div className={cn('space-y-4', embedded ? 'px-6 py-4' : 'p-4')}>
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i}>
               <div className="skeleton h-3 w-16 rounded" />
@@ -130,12 +136,12 @@ export function CommentsPane({
       <aside
         style={overlay || embedded ? undefined : { width }}
         className={cn(
-          'flex min-h-0 flex-col bg-background',
+          'flex flex-col bg-background',
           embedded
-            ? 'min-h-0 flex-1'
+            ? ''
             : overlay
-              ? 'fixed inset-y-0 right-0 z-40 w-full border-l border-border shadow-modal sm:w-[min(92vw,400px)]'
-              : 'relative z-10 shrink-0 border-l border-border',
+              ? 'fixed inset-y-0 right-0 z-40 min-h-0 w-full border-l border-border shadow-modal sm:w-[min(92vw,400px)]'
+              : 'relative z-10 min-h-0 shrink-0 border-l border-border',
         )}
       >
         {/* Resize handle: a 1px rule that turns accent on hover. */}
@@ -151,35 +157,65 @@ export function CommentsPane({
           </div>
         )}
 
-        {/* Header — DESIGN.md §4.3 */}
-        <header className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-4">
-          <h2 className="flex min-w-0 items-center gap-1.5 text-headline font-semibold text-fg">
-            <MessageSquare size={15} className="shrink-0 text-fg/50" />
-            评论
-            {entry.commentsCount > 0 && (
-              <span className="rounded-full bg-fill px-1.5 py-0.5 text-footnote font-medium tabular-nums text-fg/50">
-                {entry.commentsCount}
-              </span>
+        {/* Header — DESIGN.md §4.3. Embedded in the note rail it is
+            Xiaohongshu's plain "共 N 条评论" line rather than a toolbar. */}
+        {embedded ? (
+          <header className="flex shrink-0 items-center gap-2 px-6 pt-4">
+            <h2 className="text-callout text-fg/50">
+              {entry.commentsCount > 0 ? (
+                <>
+                  共 <span className="tabular-nums">{entry.commentsCount}</span> 条评论
+                </>
+              ) : (
+                '评论'
+              )}
+            </h2>
+            <div className="flex-1" />
+            {entry.comments && (
+              <IconButton
+                title="刷新评论"
+                disabled={loadingComments || !entry.url}
+                onClick={() => void refresh()}
+              >
+                {loadingComments ? <Spinner size={14} /> : <RefreshCw size={14} />}
+              </IconButton>
             )}
-          </h2>
-          <div className="flex-1" />
-          {entry.comments && (
-            <IconButton
-              title="刷新评论"
-              disabled={loadingComments || !entry.url}
-              onClick={() => void refresh()}
-            >
-              {loadingComments ? <Spinner size={14} /> : <RefreshCw size={15} />}
-            </IconButton>
-          )}
-          {!embedded && (
+          </header>
+        ) : (
+          <header className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-4">
+            <h2 className="flex min-w-0 items-center gap-1.5 text-headline font-semibold text-fg">
+              <MessageSquare size={15} className="shrink-0 text-fg/50" />
+              评论
+              {entry.commentsCount > 0 && (
+                <span className="rounded-full bg-fill px-1.5 py-0.5 text-footnote font-medium tabular-nums text-fg/50">
+                  {entry.commentsCount}
+                </span>
+              )}
+            </h2>
+            <div className="flex-1" />
+            {entry.comments && (
+              <IconButton
+                title="刷新评论"
+                disabled={loadingComments || !entry.url}
+                onClick={() => void refresh()}
+              >
+                {loadingComments ? <Spinner size={14} /> : <RefreshCw size={15} />}
+              </IconButton>
+            )}
             <IconButton title="收起评论区" onClick={() => setCommentsVisible(false)}>
               {overlay ? <X size={15} /> : <ChevronRight size={15} />}
             </IconButton>
-          )}
-        </header>
+          </header>
+        )}
 
-        <div className="scrollbar-thin min-h-0 flex-1 overflow-auto px-4 py-3 [scrollbar-gutter:stable]">
+        {/* Embedded, the rail scrolls the note meta and the thread together. */}
+        <div
+          className={cn(
+            embedded
+              ? 'px-6 pb-6 pt-2'
+              : 'scrollbar-thin min-h-0 flex-1 overflow-auto px-4 py-3 [scrollbar-gutter:stable]',
+          )}
+        >
           {loadingComments && !entry.comments && (
             <div className="flex items-center justify-center gap-2 py-6 text-callout text-fg/50">
               <Spinner size={13} />

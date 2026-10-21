@@ -318,6 +318,9 @@ func runSelfTest(dataDir string) error {
 	if err := feed.SelfTestRecommend(); err != nil {
 		return err
 	}
+	if err := feed.SelfTestPodcasts(); err != nil {
+		return err
+	}
 	if err := feed.SelfTestDominantColor(); err != nil {
 		return err
 	}
@@ -415,6 +418,27 @@ func runRecommend(dataDir string) error {
 			break
 		}
 		fmt.Printf("  * %s (%s) score=%d tags=%v\n", s.Title, s.URL, s.Score, s.Tags)
+	}
+
+	podcastSubs := make([]string, 0, len(feeds))
+	for _, f := range feeds {
+		podcastSubs = append(podcastSubs, f.URL)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	var shown []string
+	for round := 0; round < 2; round++ {
+		podcasts, err := feed.NewFetcher().RecommendPodcasts(ctx, feed.PodcastRequest{
+			Interest: interest, Subscribed: podcastSubs, Exclude: shown, Round: round, Limit: 8,
+		})
+		if err != nil {
+			return fmt.Errorf("podcasts: %w", err)
+		}
+		fmt.Printf("podcasts round=%d: %d\n", round, len(podcasts))
+		for _, p := range podcasts {
+			fmt.Printf("  ♪ %s — %s [%s] eps=%d %s (%s)\n", p.Title, p.Author, p.Genre, p.EpisodeCount, p.Reason, p.URL)
+			shown = append(shown, p.URL)
+		}
 	}
 	return nil
 }

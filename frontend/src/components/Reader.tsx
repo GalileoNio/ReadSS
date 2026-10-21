@@ -19,9 +19,11 @@ import {
   UserRound,
 } from 'lucide-react';
 import { useApp } from '../store/app';
+import { usePlayer } from '../store/player';
 import { useUI } from '../store/ui';
 import { cn, formatDate, hostOf } from '../lib/utils';
 import { CardImage, FeedIcon, IconButton, Spinner } from './primitives';
+import { EpisodePlayBar } from './PodcastPlayer';
 import { openExternal } from '../lib/feedActions';
 import { handleContentLinkClick, proxyRemoteImages } from '../lib/remoteImages';
 import { useViewport } from '../hooks/useViewport';
@@ -49,7 +51,9 @@ export function Reader({ modal = false }: { modal?: boolean }) {
     imageProxy,
   } = useApp();
   const { pushToast, commentsVisible, setCommentsVisible } = useUI();
-  const { isMobile, isWide } = useViewport();
+  const { isMobile, isWide, isCompact } = useViewport();
+  /** The floating podcast dock overlaps the end of the article. */
+  const playerActive = usePlayer((s) => Boolean(s.entry));
   const [hoverEdge, setHoverEdge] = useState<'left' | 'right' | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const articleRef = useRef<HTMLDivElement>(null);
@@ -178,32 +182,37 @@ export function Reader({ modal = false }: { modal?: boolean }) {
                   <Circle size={15} className="fill-accent/20 text-accent" />
                 )}
               </IconButton>
-              <IconButton
-                title={entry.starred ? '取消星标 (S)' : '加星标 (S)'}
-                active={entry.starred}
-                onClick={() => void toggleStar(entry.id)}
-              >
-                <Star
-                  size={15}
-                  className={entry.starred ? 'fill-amber-400 text-amber-400' : undefined}
-                />
-              </IconButton>
-              <IconButton
-                title="加入稍后读"
-                active={entry.readLater}
-                onClick={() => void toggleReadLater(entry.id)}
-              >
-                <BookmarkPlus size={15} />
-              </IconButton>
-              <IconButton
-                title="复制链接"
-                onClick={() => {
-                  void navigator.clipboard?.writeText(entry.url);
-                  pushToast({ message: '已复制链接', tone: 'success' });
-                }}
-              >
-                <Copy size={15} />
-              </IconButton>
+              {/* The desktop note rail has its own interaction bar with these. */}
+              {!(modal && !isCompact) && (
+                <>
+                  <IconButton
+                    title={entry.starred ? '取消星标 (S)' : '加星标 (S)'}
+                    active={entry.starred}
+                    onClick={() => void toggleStar(entry.id)}
+                  >
+                    <Star
+                      size={15}
+                      className={entry.starred ? 'fill-amber-400 text-amber-400' : undefined}
+                    />
+                  </IconButton>
+                  <IconButton
+                    title="加入稍后读"
+                    active={entry.readLater}
+                    onClick={() => void toggleReadLater(entry.id)}
+                  >
+                    <BookmarkPlus size={15} />
+                  </IconButton>
+                  <IconButton
+                    title="复制链接"
+                    onClick={() => {
+                      void navigator.clipboard?.writeText(entry.url);
+                      pushToast({ message: '已复制链接', tone: 'success' });
+                    }}
+                  >
+                    <Copy size={15} />
+                  </IconButton>
+                </>
+              )}
               <IconButton
                 title="在浏览器中打开 (B)"
                 disabled={!entry.url}
@@ -218,7 +227,12 @@ export function Reader({ modal = false }: { modal?: boolean }) {
         {loadingEntry && !entry ? (
           <ReaderSkeleton wide={modal} />
         ) : entry ? (
-          <article className="relative w-full min-w-0 overflow-hidden pb-10">
+          <article
+            className={cn(
+              'relative w-full min-w-0 overflow-hidden',
+              playerActive ? 'pb-28' : 'pb-10',
+            )}
+          >
             {/* In the modal the hero is full-bleed: no top, left or right margin
                 and no rounded corners, so it reads as the note's cover rather
                 than an inline picture. The floating toolbar sits over it.
@@ -334,6 +348,8 @@ export function Reader({ modal = false }: { modal?: boolean }) {
                     )}
                   </h1>
                 )}
+
+                {entry.audioUrl && <EpisodePlayBar entry={entry} />}
 
                 {/* In the modal the author card and meta live in the right
                     sidebar, so the article pane keeps only the image and title. */}

@@ -6,6 +6,7 @@ import { useBackendEvents, useTheme } from './hooks/useAppEffects';
 import { useShortcuts } from './hooks/useShortcuts';
 import { useViewport } from './hooks/useViewport';
 import { ArticleModal } from './components/ArticleModal';
+import { PodcastPlayer } from './components/PodcastPlayer';
 import { DiscoverPane } from './components/DiscoverPane';
 import { EntryList } from './components/EntryList';
 import { ContextMenu, Toasts } from './components/overlays';
@@ -68,6 +69,9 @@ export default function App() {
       )}
 
       {ready && selectedEntryId && <ArticleModal />}
+
+      {/* Podcast playback survives modal changes and list navigation. */}
+      {ready && <PodcastPlayer />}
 
       {/* Error banner ------------------------------------------------ */}
       {error && (

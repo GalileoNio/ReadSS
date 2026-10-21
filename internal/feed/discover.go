@@ -98,36 +98,85 @@ func resolveRef(base *url.URL, href string) string {
 var socialHosts = []string{
 	"twitter.com", "x.com", "nitter.", "mastodon.", "misskey.", "pleroma.",
 	"bsky.app", "bluesky", "weibo.com", "threads.net", "tumblr.com",
-	"pixelfed.", "lemmy.", "reddit.com", "micro.blog", "bilibili.com",
+	"pixelfed.", "lemmy.", "reddit.com", "micro.blog",
 	"zhihu.com", "douban.com",
+}
+
+// videoHosts publish clips rather than articles: their feeds belong in the
+// "Videos" tab even when an entry's text reads like a blog post. Bilibili is the
+// case asked for most often.
+var videoHosts = []string{
+	"bilibili.com", "b23.tv", "youtube.com", "youtu.be", "vimeo.com",
+	"douyin.com", "tiktok.com", "nicovideo.jp", "twitch.tv",
+}
+
+// audioHosts are podcast platforms: their feeds are shows, so the "Audio" tab.
+var audioHosts = []string{
+	"podcasts.apple.com", "anchor.fm", "xiaoyuzhoufm.com", "ximalaya.com",
+	"podcasts.google.com", "overcast.fm", "castbox.fm", "pca.st",
+	"spotify.com/show", "podbean.com", "buzzsprout.com", "libsyn.com",
+	"fireside.fm", "transistor.fm", "captivate.fm",
+}
+
+func matchesAnyHost(lower string, hosts []string) bool {
+	for _, h := range hosts {
+		if strings.Contains(lower, h) {
+			return true
+		}
+	}
+	return false
+}
+
+// ClassifyURL returns the tab implied by the feed's own address, or "" when the
+// address says nothing useful.
+//
+// It exists separately from Classify so subscriptions saved before a rule
+// existed can be reclassified at startup without refetching them.
+func ClassifyURL(feedURL string) string {
+	lower := strings.ToLower(feedURL)
+	switch {
+	case matchesAnyHost(lower, videoHosts):
+		return model.ViewVideos
+	case matchesAnyHost(lower, audioHosts):
+		return model.ViewAudio
+	case matchesAnyHost(lower, socialHosts):
+		return model.ViewSocial
+	default:
+		return ""
+	}
 }
 
 // Classify decides which timeline tab a feed belongs to. The heuristics are
 // deliberately conservative: anything ambiguous stays in "Articles".
 func Classify(feedURL string, items []store.FeedItem) string {
-	lower := strings.ToLower(feedURL)
-	for _, h := range socialHosts {
-		if strings.Contains(lower, h) {
-			return model.ViewSocial
-		}
+	if byURL := ClassifyURL(feedURL); byURL != "" {
+		return byURL
 	}
 	if len(items) == 0 {
 		return model.ViewArticles
 	}
 
-	mediaOnly, hasVideo := 0, 0
+	mediaOnly, videos, audio := 0, 0, 0
 	for _, it := range items {
 		content := strings.ToLower(it.Content)
 		textLen := len([]rune(PlainText(it.Content)))
 		if strings.Contains(content, "<img") && textLen < 140 {
 			mediaOnly++
 		}
-		if strings.Contains(content, "<video") || strings.Contains(content, "<audio") {
-			hasVideo++
+		if strings.Contains(content, "<video") {
+			videos++
+		}
+		if it.AudioURL != "" || strings.Contains(content, "<audio") {
+			audio++
 		}
 	}
 
-	if hasVideo*2 >= len(items) {
+	// Audio before video: podcast show notes often embed a player, while a
+	// podcast feed is recognisable by its <audio> elements.
+	if audio*2 >= len(items) {
+		return model.ViewAudio
+	}
+	if videos*2 >= len(items) {
 		return model.ViewVideos
 	}
 	if mediaOnly*2 >= len(items) {

@@ -1423,25 +1423,33 @@ func renderGenericComments(items []map[string]any, depth int) string {
 
 		b.WriteString(`<p class="comment-author">`)
 		b.WriteString(html.EscapeString(author))
-
-		meta := []string{}
-		if floor := pickAuthor(it, floorFields); floor != "" {
-			meta = append(meta, floor)
-		}
-		if ts := pickTime(it, timeFields); ts > 0 {
-			meta = append(meta, time.Unix(ts, 0).Format("2006-01-02"))
-		}
-		if likes, ok := pickInt(it, likeFields); ok && likes > 0 {
-			meta = append(meta, strconv.Itoa(likes)+" 赞")
-		}
-		if len(meta) > 0 {
-			b.WriteString(` <span class="comment-meta">` + html.EscapeString(strings.Join(meta, " · ")) + `</span>`)
+		if floor := floorLabel(pickAuthor(it, floorFields)); floor != "" {
+			b.WriteString(` <span class="comment-floor">` + html.EscapeString(floor) + `</span>`)
 		}
 		b.WriteString(`</p>`)
 
 		if body != "" {
 			b.WriteString(`<div class="comment__content">` + body + `</div>`)
 		}
+
+		// Date on the left and the like count on the right, under the body, as
+		// in Xiaohongshu's comment rows. A known zero shows the word "赞".
+		date := ""
+		if ts := pickTime(it, timeFields); ts > 0 {
+			date = time.Unix(ts, 0).Format("2006-01-02")
+		}
+		likes, hasLikes := pickInt(it, likeFields)
+		if date != "" || hasLikes {
+			b.WriteString(`<p class="comment-meta">`)
+			if date != "" {
+				b.WriteString(`<span>` + date + `</span>`)
+			}
+			if hasLikes {
+				b.WriteString(`<span class="comment-like">` + likeLabel(likes) + `</span>`)
+			}
+			b.WriteString(`</p>`)
+		}
+
 		if depth < maxGenericReplyDepth && len(replies) > 0 {
 			b.WriteString(renderGenericComments(replies, depth+1))
 		}
@@ -1451,6 +1459,35 @@ func renderGenericComments(items []map[string]any, depth int) string {
 }
 
 const maxGenericReplyDepth = 3
+
+// floorLabel reduces a site's floor text ("36楼", "#12", "12") to its number,
+// which the CSS styles as a badge; text without digits is kept as is.
+func floorLabel(raw string) string {
+	raw = strings.TrimSpace(raw)
+	digits := strings.Map(func(r rune) rune {
+		if r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, raw)
+	if digits != "" {
+		return strings.TrimLeft(digits, "0")
+	}
+	return raw
+}
+
+// likeLabel follows Xiaohongshu's counter: "赞" for none, "1.2万" from 10,000.
+func likeLabel(n int) string {
+	switch {
+	case n <= 0:
+		return "赞"
+	case n >= 10000:
+		s := strconv.FormatFloat(float64(n)/10000, 'f', 1, 64)
+		return strings.TrimSuffix(s, ".0") + "万"
+	default:
+		return strconv.Itoa(n)
+	}
+}
 
 func pickString(obj map[string]any, keys []string) string {
 	for _, k := range keys {
@@ -1604,7 +1641,8 @@ func SelfTestCommentEngine() error {
 
 	rendered := SanitizeHTML(renderGenericComments(items, 0))
 	for _, want := range []string{
-		`class="comment comment--api"`, "Ada", "hello", "nested reply", "Grace", "second comment", "3 赞",
+		`class="comment comment--api"`, "Ada", "hello", "nested reply", "Grace", "second comment",
+		`<span class="comment-like">3</span>`,
 	} {
 		if !strings.Contains(rendered, want) {
 			return fmt.Errorf("[comments] rendered json comments lost %q", want)
@@ -1668,10 +1706,21 @@ func SelfTestCommentEngine() error {
 	// 7. The author and avatar must be found under any of the common nesting
 	// keys, and the block model must render.
 	blockHTML := SanitizeHTML(renderGenericComments(items, 0))
-	for _, want := range []string{"张三", "李四", "第一条", "第二条", "3 赞"} {
+	for _, want := range []string{"张三", "李四", "第一条", "第二条", `<span class="comment-like">3</span>`} {
 		if !strings.Contains(blockHTML, want) {
 			return fmt.Errorf("[comments] block rendering lost %q in %s", want, blockHTML)
 		}
+	}
+	floorHTML := SanitizeHTML(renderGenericComments([]map[string]any{
+		{"comment": "x", "floorStr": "36楼", "likes": float64(0)},
+	}, 0))
+	for _, want := range []string{`<span class="comment-floor">36</span>`, `<span class="comment-like">赞</span>`} {
+		if !strings.Contains(floorHTML, want) {
+			return fmt.Errorf("[comments] floor/like rendering lost %q in %s", want, floorHTML)
+		}
+	}
+	if got := likeLabel(12345); got != "1.2万" {
+		return fmt.Errorf("[comments] likeLabel(12345) = %q, want 1.2万", got)
 	}
 
 	// 8. An opaque thread key declared on the comment container is a candidate

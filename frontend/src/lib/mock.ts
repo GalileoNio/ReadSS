@@ -17,6 +17,7 @@ import type {
   Feed,
   FeedSuggestion,
   ListQuery,
+  PodcastSuggestion,
   RefreshProgress,
   RefreshResult,
   Settings,
@@ -33,6 +34,34 @@ const MOCK_SUGGESTIONS: FeedSuggestion[] = [
   { title: 'PetaPixel', url: 'https://petapixel.com/feed/', siteUrl: 'https://petapixel.com', description: '摄影器材与作品', tags: ['摄影', '数码'], score: 7 },
   { title: 'Dezeen', url: 'https://www.dezeen.com/feed/', siteUrl: 'https://www.dezeen.com', description: '建筑与设计', tags: ['设计', '建筑', '创意'], score: 5 },
 ];
+
+/** Preview-only podcast directory, shaped like the Apple Podcasts results. */
+const MOCK_PODCASTS: PodcastSuggestion[] = [
+  ['硅谷早知道', '科技', '和你常读的「科技」相关'],
+  ['声东击西', '社会与文化', '播客总榜第 3 名'],
+  ['商业就是这样', '商业', '「商业」榜第 2 名'],
+  ['半拿铁', '历史', '「历史」榜第 1 名'],
+  ['科学有故事', '科学', '和你常读的「科学」相关'],
+  ['忽左忽右', '历史', '播客总榜第 7 名'],
+  ['不合时宜', '新闻', '「新闻」榜第 4 名'],
+  ['随机波动', '艺术', '播客总榜第 12 名'],
+  ['井底之蛙', '电视与电影', '「电视与电影」榜第 5 名'],
+  ['程序员的自我修养', '科技', '和你常读的「编程」相关'],
+  ['无人知晓', '社会与文化', '播客总榜第 18 名'],
+  ['得意忘形', '健康', '「健康」榜第 6 名'],
+].map(([title, genre, reason], i) => ({
+  title,
+  author: `${title}主播团`,
+  url: `https://podcast.example.com/${i + 1}/feed.xml`,
+  pageUrl: `https://podcasts.apple.com/cn/podcast/id${100000 + i}`,
+  artworkUrl: thumb((i * 47) % 360, (i * 47 + 40) % 360, title.slice(0, 1)),
+  genre,
+  description: `${title}：一档关于${genre}的中文播客，每周更新。`,
+  episodeCount: 20 + i * 13,
+  lastEpisodeAt: Date.now() - (i + 1) * 2 * 86_400_000,
+  reason,
+  score: 30 - i,
+}));
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 
@@ -142,6 +171,26 @@ const FEED_SEEDS: FeedSeed[] = [
     hue: 330,
     desc: '摄影与视觉',
   },
+  {
+    id: 9,
+    title: '哔哩哔哩 · 影视飓风',
+    url: 'https://www.bilibili.com/video/BV1xx411c7mD',
+    site: 'https://www.bilibili.com',
+    categoryId: 2,
+    view: 'videos',
+    hue: 190,
+    desc: '影像技术与幕后',
+  },
+  {
+    id: 10,
+    title: '小宇宙 · 不合时宜',
+    url: 'https://www.xiaoyuzhoufm.com/podcast/5e7b1f1a418a84a046b7c2f0',
+    site: 'https://www.xiaoyuzhoufm.com',
+    categoryId: 3,
+    view: 'audio',
+    hue: 340,
+    desc: '播客 · 每周对谈',
+  },
 ];
 
 interface EntrySeed {
@@ -155,6 +204,8 @@ interface EntrySeed {
   image?: string;
   author?: string;
   body?: string;
+  audioUrl?: string;
+  audioDuration?: number;
 }
 
 const ACCENT_BODY = (lead: string, sections: string[]) => `
@@ -272,7 +323,7 @@ const ENTRY_SEEDS: EntrySeed[] = [
     feedId: 1,
     title: '如何用一块旧硬盘搭一个真正属于自己的云盘',
     summary: '不依赖任何厂商，从硬件选择到内网穿透，完整记录一次自建存储的实践。',
-    minutesAgo: 2 * DAY,
+    minutesAgo: 2 * 24 * 60,
     read: true,
     image: thumb(30, 60, 'D'),
     author: '李默',
@@ -285,7 +336,7 @@ const ENTRY_SEEDS: EntrySeed[] = [
     feedId: 2,
     title: '科技爱好者周刊（第 297 期）：慢下来的勇气',
     summary: '本周话题：为什么"快速失败"在个人项目里往往是错的。',
-    minutesAgo: 3 * DAY,
+    minutesAgo: 3 * 24 * 60,
     read: true,
     author: '阮一峰',
     body: ACCENT_BODY('本周聊聊"慢"。', [
@@ -297,7 +348,7 @@ const ENTRY_SEEDS: EntrySeed[] = [
     title: 'SQLite is not a toy database',
     summary:
       'A thorough walkthrough of WAL mode, busy timeouts, and why a single writer is usually fine for desktop applications.',
-    minutesAgo: 4 * DAY,
+    minutesAgo: 4 * 24 * 60,
     read: true,
     starred: true,
     author: 'antirez',
@@ -314,7 +365,7 @@ const ENTRY_SEEDS: EntrySeed[] = [
     title: 'Inside the tiny teams rebuilding the web’s oldest protocol',
     summary:
       'RSS never died. It just moved into smaller, quieter applications built by one or two people.',
-    minutesAgo: 5 * DAY,
+    minutesAgo: 5 * 24 * 60,
     read: true,
     image: thumb(290, 320, 'W'),
     author: 'David Pierce',
@@ -326,7 +377,7 @@ const ENTRY_SEEDS: EntrySeed[] = [
     feedId: 5,
     title: 'On Software Longevity',
     summary: 'The software that lasts is the software that is boring to maintain.',
-    minutesAgo: 6 * DAY,
+    minutesAgo: 6 * 24 * 60,
     read: true,
     starred: true,
     author: 'John Gruber',
@@ -338,7 +389,7 @@ const ENTRY_SEEDS: EntrySeed[] = [
     feedId: 6,
     title: '一次生产环境的死锁排查记录',
     summary: '从 goroutine dump 到定位问题，完整复盘一次数据库连接池引发的死锁。',
-    minutesAgo: 8 * DAY,
+    minutesAgo: 8 * 24 * 60,
     read: true,
     readLater: true,
     author: '小林',
@@ -367,6 +418,46 @@ const ENTRY_SEEDS: EntrySeed[] = [
     author: 'Lens',
     body: ACCENT_BODY('这组照片的主题是"人造光"。', [
       '<p>雨后的路面是最好的反射面。</p>',
+    ]),
+  },
+  {
+    feedId: 9,
+    title: '我们花了三个月，把 8K 素材压进一条 4 分钟的视频',
+    summary:
+      '从拍摄、剪辑到调色与编码，一条视频的后期链路完整拆解；最后附上不同码率下的画质对比。',
+    minutesAgo: 3 * 60,
+    image: thumb(190, 210, '▶'),
+    author: '影视飓风',
+    body: ACCENT_BODY('这条片子的大部分时间花在了取舍上。', [
+      '<h2>拍摄</h2><p>8K 是为了后期有裁切空间，不是为了导出 8K。</p>',
+      '<h2>编码</h2><p>平台会再压一次，所以我们要把细节留在压缩不容易抹掉的地方。</p>',
+    ]),
+  },
+  {
+    feedId: 10,
+    title: 'Ep.142 我们为什么又回到了 RSS',
+    summary: '聊算法推荐、注意力预算，以及订阅制为什么又流行起来。',
+    minutesAgo: 8 * 60,
+    image: thumb(340, 300, '♫'),
+    author: '不合时宜',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+    audioDuration: 372,
+    body: ACCENT_BODY('这一期我们从各自的阅读方式聊起。', [
+      '<p>订阅是一种承诺：你主动决定把注意力交给谁。</p>',
+      '<p>算法的问题不是推荐得不准，而是它替你做决定。</p>',
+    ]),
+  },
+  {
+    feedId: 10,
+    title: 'Ep.141 注意力预算：把时间花在真正想读的东西上',
+    summary: '一次关于信息节食的实验：关掉推送、删掉应用，只留下真正想读的来源。',
+    minutesAgo: 4 * 24 * 60,
+    image: thumb(20, 350, '♫'),
+    author: '不合时宜',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+    audioDuration: 425,
+    body: ACCENT_BODY('这期的主题是注意力预算。', [
+      '<p>我们试着把每天的信息消费记了一周的账。</p>',
     ]),
   },
 ];
@@ -427,6 +518,11 @@ const entries: EntryDetail[] = ENTRY_SEEDS.map((seed, index) => {
     contentSource: 'feed',
     readingMinutes: Math.max(1, Math.round(seed.summary.length / 300)),
     siteUrl: feed.siteUrl,
+    audioUrl: seed.audioUrl ?? '',
+    audioType: seed.audioUrl ? 'audio/mpeg' : '',
+    audioDuration: seed.audioDuration ?? 0,
+    audioPosition: 0,
+    audioPlayed: false,
   };
 });
 
@@ -603,6 +699,15 @@ const handlers: Record<string, (args: unknown[]) => unknown> = {
     return MOCK_SUGGESTIONS.filter((s) => !subscribed.has(s.url)).slice(0, limit);
   },
 
+  RecommendPodcasts: async (args) => {
+    await sleep(500);
+    const [limit = 8, , exclude = []] = args as [number, number, string[]];
+    const open = MOCK_PODCASTS.filter((p) => !feeds.some((f) => f.url === p.url));
+    // Like the backend: unseen shows first, already shown ones only as filler.
+    const seen = new Set(exclude);
+    return [...open.filter((p) => !seen.has(p.url)), ...open.filter((p) => seen.has(p.url))].slice(0, limit);
+  },
+
   GetEntry: (args) => {
     const id = args[0] as number;
     const found = entries.find((e) => e.id === id);
@@ -613,6 +718,19 @@ const handlers: Record<string, (args: unknown[]) => unknown> = {
   MarkRead: (args) => {
     const [ids, read] = args as [number[], boolean];
     for (const e of entries) if (ids.includes(e.id)) e.read = read;
+    return null;
+  },
+
+  SavePlayback: (args) => {
+    const [id, positionMs, durationSec, completed] = args as [number, number, number, boolean];
+    const e = entries.find((x) => x.id === id);
+    if (!e) return null;
+    e.audioPosition = Math.max(0, Math.round(positionMs));
+    if (durationSec > 0 && e.audioDuration <= 0) e.audioDuration = durationSec;
+    if (completed || (durationSec > 0 && positionMs >= durationSec * 1000 - 2000)) {
+      e.audioPlayed = true;
+      e.read = true;
+    }
     return null;
   },
 
@@ -712,9 +830,12 @@ const handlers: Record<string, (args: unknown[]) => unknown> = {
     ];
   },
 
-  AddFeedByUrl: async (args) => {
+  AddFeedByURL: async (args) => {
     await sleep(400);
-    const [url, categoryId] = args as [string, number];
+    const [url, categoryId, view] = args as [string, number, ViewKey | ''];
+    const existing = feeds.find((f) => f.url === url);
+    if (existing) return existing;
+    const known = [...MOCK_SUGGESTIONS, ...MOCK_PODCASTS].find((s) => s.url === url);
     const host = (() => {
       try {
         return new URL(url.startsWith('http') ? url : `https://${url}`).hostname.replace(/^www\./, '');
@@ -725,14 +846,14 @@ const handlers: Record<string, (args: unknown[]) => unknown> = {
     const id = Math.max(...feeds.map((f) => f.id)) + 1;
     const feed: Feed = {
       id,
-      title: host,
+      title: known?.title ?? host,
       url,
       siteUrl: `https://${host}`,
       description: '刚刚订阅的订阅源',
       iconUrl: '',
       color: `hsl(${(id * 53) % 360} 62% 52%)`,
       categoryId: categoryId || 0,
-      view: 'articles',
+      view: view || 'articles',
       unread: 0,
       error: '',
       lastFetched: Date.now(),

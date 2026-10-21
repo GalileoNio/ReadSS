@@ -42,6 +42,17 @@ export function formatDate(ms: number): string {
   return sameYear ? md : `${d.getFullYear()}年${md}`;
 }
 
+/** Player time: 4:32, or 1:02:03 once an episode passes an hour. */
+export function formatClock(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return '0:00';
+  const total = Math.round(seconds);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const two = (n: number) => String(n).padStart(2, '0');
+  return h > 0 ? `${h}:${two(m)}:${two(s)}` : `${m}:${two(s)}`;
+}
+
 /** Date used for the sticky group headers in the entry list. */
 export function groupLabel(ms: number): string {
   const d = new Date(ms);

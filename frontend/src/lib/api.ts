@@ -20,6 +20,7 @@ import type {
   Feed,
   FeedSuggestion,
   ListQuery,
+  PodcastSuggestion,
   RefreshResult,
   Settings,
 } from './types';
@@ -93,6 +94,12 @@ export const fetchFullContent = (id: number) => call<EntryDetail>('FetchFullCont
 export const clearFullContent = (id: number) => call<EntryDetail>('ClearFullContent', id);
 export const fetchComments = (id: number) => call<CommentResult>('FetchComments', id);
 
+/* --------------------------------------------------------------- podcast */
+
+/** Persists the episode position (milliseconds) and completion. */
+export const savePlayback = (entryId: number, positionMs: number, durationSec: number, completed = false) =>
+  call<void>('SavePlayback', entryId, positionMs, durationSec, completed);
+
 /* ------------------------------------------------------------------ icons */
 
 export const fetchFeedIcon = (feedId: number) => call<string>('FetchFeedIcon', feedId);
@@ -148,6 +155,10 @@ export const recommendEntries = (limit = 24) =>
 /** Subscriptions the reader may like, similar to their own feeds. */
 export const recommendFeeds = (limit = 12) =>
   call<FeedSuggestion[]>('RecommendFeeds', limit);
+
+/** Real podcast shows; `round` rotates topics, `exclude` skips shows already shown. */
+export const recommendPodcasts = (limit = 8, round = 0, exclude: string[] = []) =>
+  call<PodcastSuggestion[]>('RecommendPodcasts', limit, round, exclude);
 /* ---------------------------------------------------------------- events */
 
 export const EVENTS = {

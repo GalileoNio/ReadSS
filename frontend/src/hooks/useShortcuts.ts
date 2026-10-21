@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useApp } from '../store/app';
+import { usePlayer } from '../store/player';
 import { useUI } from '../store/ui';
 import { isMod } from '../lib/utils';
 import { exportOpml } from '../components/dialogs';
@@ -72,13 +73,28 @@ export function useShortcuts() {
 
       // ---- tab switching (1..n) --------------------------------------
       if (!typing && /^[1-5]$/.test(e.key)) {
-        const views = ['all', 'articles', 'social', 'pictures', 'videos'] as const;
+        // The five content tabs: articles, social, pictures, videos, audio.
+        // 首页 is a smart filter now, reached from its capsule.
+        const views = ['articles', 'social', 'pictures', 'videos', 'audio'] as const;
         e.preventDefault();
         void state.selectView(views[Number(e.key) - 1]);
         return;
       }
 
       if (typing) return;
+
+      // ---- podcast playback ------------------------------------------
+      // Space toggles the loaded episode, unless a control has focus (there it
+      // is the control's own activation key).
+      if (e.key === ' ') {
+        const target = e.target as HTMLElement | null;
+        if (target?.closest('button, [role="button"], a, input, select, textarea')) return;
+        const player = usePlayer.getState();
+        if (!player.entry) return;
+        e.preventDefault();
+        void player.toggle();
+        return;
+      }
 
       // ---- bare keys -------------------------------------------------
       switch (e.key) {

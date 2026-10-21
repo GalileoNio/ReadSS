@@ -308,12 +308,12 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Comment threads — see DESIGN.md §4.4.
+   Comment threads — Xiaohongshu's note comments.
 
-   Comments are rows, not cards: no per-comment border and no per-comment
-   background, because the app expresses hierarchy with the text ramp and with
-   spacing, reserving borders for separating regions. Nesting is shown by a
-   single 1px rail, matching how the sidebar nests groups.
+   Each comment is a row: a round avatar on the left, then a muted name, the
+   body and a muted date line stacked beside it. Rows are separated by spacing
+   only — no cards, borders or hover surfaces. Replies sit under their parent's
+   text column with a smaller avatar, without a rail.
 
    Extracted comments come from many different systems, so the rules stay
    generic: they style the shape of a thread (entry, author line, body, nested
@@ -324,58 +324,83 @@
 .article-content.comments .comment-body,
 .article-content.comments li.comment,
 .article-content.comments .reply {
-  @apply rounded-lg px-2 py-2 transition-colors;
+  @apply py-2.5;
 }
-.article-content.comments .comment:hover {
-  @apply bg-item-hover;
-}
-/* Nested replies: indented behind a 1px rail, with no change of surface. */
+/* Extracted replies have no avatar column, so they are indented instead. */
 .article-content.comments .comment .comment,
 .article-content.comments .comment .reply {
-  @apply mb-0 ml-2 mt-1 border-l border-border pl-3;
+  @apply mb-0 ml-4 mt-1 pb-0 pt-2;
 }
 .article-content.comments .comment-author,
 .article-content.comments .fn,
 .article-content.comments .says {
-  @apply mb-1 block text-headline font-semibold text-fg/85;
+  @apply mb-1 mt-0 block text-callout font-normal leading-snug text-fg/50;
 }
-/* Comments the app renders itself get a proper avatar column: the avatar sits
-   in a narrow first column and everything else stacks beside it, which keeps a
-   long thread aligned and readable. Extracted markup keeps the generic rules
-   above, since its inner structure belongs to the source site. */
+/* Comments the app renders itself get an avatar column: the avatar spans the
+   name and body rows, everything else stacks in the second column, so a long
+   thread keeps one steady text edge. */
 .article-content.comments .comment--api {
   display: grid;
-  /* `auto` so the avatar column collapses when a comment has no avatar at all
-     rather than leaving a 20px gap. */
+  /* `auto` so the avatar column collapses when a comment has no avatar. */
   grid-template-columns: auto minmax(0, 1fr);
-  column-gap: 0.5rem;
+  column-gap: 0.75rem;
   align-items: start;
-  @apply px-2 py-2;
 }
 .article-content.comments .comment--api > .comment-author,
 .article-content.comments .comment--api > .comment__content,
+.article-content.comments .comment--api > .comment-meta,
 .article-content.comments .comment--api > .comment {
   grid-column: 2;
 }
 .article-content.comments .comment--api > .avatar {
   grid-column: 1;
-  grid-row: 1;
+  grid-row: 1 / span 2;
 }
-/* The author line is a flex row holding the avatar, the name and the metadata,
-   so it must not become a block like the generic rules above. */
+/* API replies already sit in the parent's text column; no extra indent. */
+.article-content.comments .comment--api > .comment--api {
+  @apply ml-0 mt-1 pb-0 pt-2;
+}
 .article-content.comments .comment-author {
-  @apply flex flex-wrap items-center gap-x-2 gap-y-0.5;
+  @apply flex flex-wrap items-center gap-x-1.5 gap-y-0.5;
 }
-.article-content.comments .comment-author .comment-meta,
+/* The date line under the body; older cached threads keep it inline after
+   the name, where the same muted style applies. */
 .article-content.comments .comment-meta {
-  @apply inline text-footnote font-normal tabular-nums text-fg/50;
+  @apply my-0 text-footnote font-normal tabular-nums text-fg/40;
 }
-/* Semantic badge, same recipe as .chip (DESIGN.md §3.3). */
+.article-content.comments .comment-author .comment-meta {
+  @apply inline;
+}
+.article-content.comments .comment--api > .comment-meta {
+  @apply mt-1.5 flex items-center gap-3;
+}
+/* Xiaohongshu's like counter: an outlined heart and the count, pushed to the
+   right end of the date line. The heart is a mask so it takes the text colour. */
+.article-content.comments .comment-like {
+  @apply ml-auto inline-flex shrink-0 items-center gap-1 text-fg/50;
+}
+.article-content.comments .comment-like::before {
+  content: '';
+  @apply h-4 w-4 shrink-0 bg-current;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+/* Floor number beside the name: a small monospaced "#12" tag. */
+.article-content.comments .comment-floor {
+  @apply inline-flex h-4 items-center rounded-[4px] bg-fill px-1 font-mono text-[11px] font-semibold leading-none tabular-nums text-fg/45;
+}
+.article-content.comments .comment-floor::before {
+  content: '#';
+  @apply mr-px font-normal opacity-60;
+}
+/* Semantic badge, like Xiaohongshu's "作者" tag next to a name. */
 .article-content.comments .comment-badge {
-  @apply rounded-full bg-accent/10 px-2 py-0.5 text-footnote font-medium text-accent;
+  @apply rounded-full bg-accent/10 px-1.5 py-px text-[11px] font-medium leading-4 text-accent;
 }
 .article-content.comments .comment__content {
-  @apply text-body leading-[1.7] text-fg/85;
+  @apply break-words text-body leading-[1.6] text-fg/90;
 }
 .article-content.comments .comment__content p:first-child {
   @apply mt-0;
@@ -384,10 +409,12 @@
   @apply mb-0;
 }
 /* Avatars: one rule for a real image and for the initials fallback, so a
-   thread keeps a steady left edge either way. 20px takes the radius ladder's
-   smallest step (DESIGN.md §1.5), matching the app's feed icons. */
+   thread keeps a steady left edge either way. */
 .article-content.comments .avatar {
-  @apply mr-0 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm align-middle;
+  @apply mr-0 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full align-middle text-[15px] ring-1 ring-border;
+}
+.article-content.comments .comment .comment .avatar {
+  @apply h-6 w-6 text-[11px];
 }
 .article-content.comments img.avatar {
   @apply object-cover;
@@ -830,6 +857,22 @@
     transform-box: fill-box;
     transform-origin: center;
   }
+
+  /* 音频: the level meter's bars rise in sequence. */
+  :where(.view-tab:hover, .view-tab:focus-visible, .view-tab[aria-pressed='true'])
+    .view-icon[data-icon='audio'] .vi-audio-bar {
+    animation: view-audio-bar 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+  }
+  :where(.view-tab:hover, .view-tab:focus-visible, .view-tab[aria-pressed='true'])
+    .view-icon[data-icon='audio'] .vi-audio-bar:nth-of-type(2) {
+    animation-delay: 90ms;
+  }
+  :where(.view-tab:hover, .view-tab:focus-visible, .view-tab[aria-pressed='true'])
+    .view-icon[data-icon='audio'] .vi-audio-bar:nth-of-type(3) {
+    animation-delay: 180ms;
+  }
 }
 
 @keyframes view-icon-settle {
@@ -993,5 +1036,20 @@
   100% {
     opacity: 0;
     transform: scale(1);
+  }
+}
+/* 音频 view icon: bars grow up from the baseline, one after another. */
+@keyframes view-audio-bar {
+  0% {
+    transform: scaleY(0.25);
+    opacity: 0.35;
+  }
+  55% {
+    transform: scaleY(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleY(1);
+    opacity: 1;
   }
 }

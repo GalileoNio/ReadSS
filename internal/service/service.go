@@ -112,6 +112,7 @@ func (s *Service) ServiceStartup(ctx context.Context, _ application.ServiceOptio
 	}
 	s.ctx, s.cancel = context.WithCancel(ctx)
 	s.backfillFeedColors()
+	s.backfillFeedViews()
 	s.startScheduler()
 	if s.RefreshOnStartup {
 		s.startStartupRefresh()
@@ -242,6 +243,17 @@ func (s *Service) GetEntry(id int64) (*model.EntryDetail, error) {
 	return s.store.EntryDetail(id)
 }
 
+// SavePlayback persists where a podcast episode stopped playing, in
+// milliseconds. A completed episode is marked read; the frontend patches its
+// local state from the same signal, so no data-changed event is emitted (a
+// re-fetch would rebuild the list while the reader is listening).
+func (s *Service) SavePlayback(entryID, positionMS int64, durationSec int, completed bool) error {
+	if entryID <= 0 {
+		return errors.New("无效的条目")
+	}
+	return s.store.SaveAudioProgress(entryID, positionMS, durationSec, completed)
+}
+
 /* ---------------------------------------------------------- discovery */
 
 // RecommendEntries suggests unread articles based on what the reader has
@@ -300,6 +312,50 @@ func (s *Service) RecommendFeeds(limit int) ([]model.FeedSuggestion, error) {
 		ranked = ranked[:limit]
 	}
 	return ranked, nil
+}
+
+// RecommendPodcasts suggests real shows from the Apple Podcasts directory,
+// matched to the reader's subscriptions and reading history.
+//
+// round increases with every refresh so the rotation brings different genres
+// and search words; exclude lists the feeds already shown, which are only used
+// again once fresh shows run out.
+func (s *Service) RecommendPodcasts(limit, round int, exclude []string) ([]model.PodcastSuggestion, error) {
+	if limit <= 0 || limit > 30 {
+		limit = 8
+	}
+	feeds, err := s.store.Feeds()
+	if err != nil {
+		return nil, err
+	}
+	seeds, _, err := s.store.RecommendationData(300, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	interest := make([]string, 0, len(feeds)*4+len(seeds)*2)
+	subscribed := make([]string, 0, len(feeds))
+	for _, f := range feeds {
+		interest = append(interest, f.Title, f.Description)
+		if f.View == model.ViewAudio {
+			// Shows already followed say the most about podcast taste.
+			interest = append(interest, f.Title, f.Description)
+		}
+		subscribed = append(subscribed, f.URL)
+	}
+	for _, e := range seeds {
+		interest = append(interest, e.Title, e.Summary)
+	}
+
+	ctx, cancel := context.WithTimeout(s.baseCtx(), 25*time.Second)
+	defer cancel()
+	return s.fetcher.RecommendPodcasts(ctx, feed.PodcastRequest{
+		Interest:   interest,
+		Subscribed: subscribed,
+		Exclude:    exclude,
+		Round:      round,
+		Limit:      limit,
+	})
 }
 
 // MarkRead sets the read flag for the given entries.
@@ -516,6 +572,36 @@ func (s *Service) backfillFeedColors() {
 			continue
 		}
 		s.storeFeedColor(f.ID, f.IconURL)
+	}
+}
+
+// backfillFeedViews reclassifies subscriptions whose address clearly belongs to
+// another tab: a Bilibili feed saved before the "Videos" rule existed, or a
+// podcast feed saved as an article.
+//
+// Only the two historic defaults ("articles", "social") are corrected, so a tab
+// the reader picked by hand (pictures/videos/audio) is never undone.
+func (s *Service) backfillFeedViews() {
+	feeds, err := s.store.Feeds()
+	if err != nil {
+		return
+	}
+	moved := 0
+	for _, f := range feeds {
+		want := feed.ClassifyURL(f.URL)
+		if want == "" || want == f.View {
+			continue
+		}
+		if f.View != model.ViewArticles && f.View != model.ViewSocial {
+			continue
+		}
+		if err := s.store.SetFeedView(f.ID, want); err != nil {
+			continue
+		}
+		moved++
+	}
+	if moved > 0 {
+		s.log.Info("feed views backfilled", "feeds", moved)
 	}
 }
 

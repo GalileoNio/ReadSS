@@ -66,6 +66,8 @@ var allowedClasses = map[string]bool{
 	"comment-author":   true,
 	"comment-meta":     true,
 	"comment-badge":    true,
+	"comment-floor":    true,
+	"comment-like":     true,
 	"comment__content": true,
 	"comment--api":     true,
 	"avatar":           true,
@@ -378,4 +380,54 @@ func FirstImageURL(fragment string) string {
 		}
 	}
 	return found
+}
+
+// FirstAudioURL returns the first safe <audio> source in a fragment, including
+// a <source> child. Feeds without enclosures sometimes embed the player in the
+// show notes; this is how those episodes still become playable.
+func FirstAudioURL(fragment string) string {
+	nodes, err := html.ParseFragment(strings.NewReader(fragment),
+		&html.Node{Type: html.ElementNode, Data: "div", DataAtom: atom.Div})
+	if err != nil {
+		return ""
+	}
+	var found string
+	var walk func(*html.Node) bool
+	walk = func(n *html.Node) bool {
+		if n.Type == html.ElementNode && n.DataAtom == atom.Audio {
+			if src := safeSrc(n); src != "" {
+				found = src
+				return true
+			}
+			for c := n.FirstChild; c != nil; c = c.NextSibling {
+				if c.Type == html.ElementNode && c.DataAtom == atom.Source {
+					if src := safeSrc(c); src != "" {
+						found = src
+						return true
+					}
+				}
+			}
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			if walk(c) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, n := range nodes {
+		if walk(n) {
+			break
+		}
+	}
+	return found
+}
+
+func safeSrc(n *html.Node) string {
+	for _, a := range n.Attr {
+		if strings.EqualFold(a.Key, "src") && isSafeURL(a.Val) {
+			return strings.TrimSpace(a.Val)
+		}
+	}
+	return ""
 }

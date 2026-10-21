@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ArrowDownUp,
+  AudioLines,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -11,6 +12,8 @@ import {
   Folder,
   LayoutGrid,
   LayoutList,
+  Pause,
+  Play,
   RefreshCw,
   Rss,
   Search,
@@ -18,12 +21,14 @@ import {
   Star,
 } from 'lucide-react';
 import { useApp } from '../store/app';
+import { usePlayer } from '../store/player';
 import { useUI } from '../store/ui';
 import { useCountdownToast } from './overlays';
-import { VIEWS, type Entry, type Scope } from '../lib/types';
-import { cardRatio, cn, detailOriginOf, groupLabel, relativeTime } from '../lib/utils';
+import { VIEWS, HOME_VIEW, type Entry, type Scope } from '../lib/types';
+import { cardRatio, cn, detailOriginOf, formatClock, groupLabel, relativeTime } from '../lib/utils';
 import {
   AnimatedArticlesIcon,
+  AnimatedAudioIcon,
   AnimatedHomeIcon,
   AnimatedPicturesIcon,
   AnimatedSocialIcon,
@@ -35,23 +40,27 @@ import {
 } from './AnimatedIcons';
 import { FeedSwitcher } from './FeedSwitcher';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
+import { useViewport } from '../hooks/useViewport';
 import { CardImage, FeedIcon, IconButton, RemoteImage, Spinner } from './primitives';
 
 /** Inline glyphs for the five views, sized for the header capsule group. */
-function ViewGlyph({ viewKey, size = 12 }: { viewKey: string; size?: number }) {
+type ViewGlyphProps = { viewKey: string; size?: number; filled?: boolean };
+function ViewGlyph({ viewKey, size = 12, filled = false }: ViewGlyphProps) {
   switch (viewKey) {
     case 'all':
-      return <AnimatedHomeIcon size={size} />;
+      return <AnimatedHomeIcon size={size} filled={filled} />;
     case 'articles':
-      return <AnimatedArticlesIcon size={size} />;
+      return <AnimatedArticlesIcon size={size} filled={filled} />;
     case 'social':
-      return <AnimatedSocialIcon size={size} />;
+      return <AnimatedSocialIcon size={size} filled={filled} />;
     case 'pictures':
-      return <AnimatedPicturesIcon size={size} />;
+      return <AnimatedPicturesIcon size={size} filled={filled} />;
     case 'videos':
-      return <AnimatedVideosIcon size={size} />;
+      return <AnimatedVideosIcon size={size} filled={filled} />;
+    case 'audio':
+      return <AnimatedAudioIcon size={size} filled={filled} />;
     default:
-      return <AnimatedHomeIcon size={size} />;
+      return <AnimatedHomeIcon size={size} filled={filled} />;
   }
 }
 
@@ -91,6 +100,19 @@ interface RowProps {
  */
 function EntryRow({ entry, selected, dimRead, edgeToEdge, blank, imageProxy, onSelect, onContextMenu }: RowProps) {
   const dimmed = dimRead && entry.read;
+  const isCurrent = usePlayer((s) => s.entry?.id === entry.id);
+  const playing = usePlayer((s) => s.playing);
+  const livePosition = usePlayer((s) => (s.entry?.id === entry.id ? s.position : 0));
+  const playEntry = usePlayer((s) => s.playEntry);
+  const toggle = usePlayer((s) => s.toggle);
+  const total = entry.audioDuration;
+  const percent = isCurrent && total > 0 ? Math.min(100, (livePosition / total) * 100) : 0;
+
+  const play = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isCurrent) void toggle();
+    else void playEntry(entry);
+  };
 
   return (
     <div
@@ -137,6 +159,22 @@ function EntryRow({ entry, selected, dimRead, edgeToEdge, blank, imageProxy, onS
             <span className="truncate">{entry.feedTitle}</span>
             <span aria-hidden>·</span>
             <span className="shrink-0 tabular-nums">{relativeTime(entry.publishedAt)}</span>
+            {entry.audioUrl && (
+              <>
+                <span aria-hidden>·</span>
+                <span
+                  className={cn(
+                    'inline-flex shrink-0 items-center gap-0.5 tabular-nums',
+                    isCurrent ? 'text-accent' : 'text-fg/50',
+                  )}
+                >
+                  <AudioLines size={10} />
+                  {total > 0
+                    ? formatClock(isCurrent && livePosition > 0 ? livePosition : total)
+                    : '播客'}
+                </span>
+              </>
+            )}
             {entry.starred && <Star size={10} className="shrink-0 fill-amber-400 text-amber-400" />}
           </div>
 
@@ -154,14 +192,54 @@ function EntryRow({ entry, selected, dimRead, edgeToEdge, blank, imageProxy, onS
           )}
         </div>
 
-        {entry.imageUrl && (
+        {entry.audioUrl ? (
+          <div className="relative ml-2 h-20 w-20 shrink-0 overflow-hidden rounded bg-gradient-to-br from-[#A855F7]/35 to-[#0EA5E9]/20">
+            <span className="absolute inset-0 flex items-center justify-center text-fg/50">
+              <AudioLines size={26} />
+            </span>
+            {entry.imageUrl && (
+              <RemoteImage
+                src={entry.imageUrl}
+                proxy={imageProxy}
+                referer={entry.url}
+                className="relative h-full w-full"
+              />
+            )}
+            <button
+              type="button"
+              title={isCurrent && playing ? '暂停' : '播放这一期'}
+              aria-label={isCurrent && playing ? '暂停' : '播放这一期'}
+              onClick={play}
+              onKeyDown={(e) => e.stopPropagation()}
+              className={cn(
+                'absolute inset-0 flex items-center justify-center bg-black/30 transition-opacity',
+                isCurrent
+                  ? 'opacity-100'
+                  : 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100',
+              )}
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-background/90 text-fg shadow-pop">
+                {isCurrent && playing ? (
+                  <Pause size={14} fill="currentColor" />
+                ) : (
+                  <Play size={14} fill="currentColor" className="ml-0.5" />
+                )}
+              </span>
+            </button>
+            {percent > 0 && (
+              <span className="absolute inset-x-0 bottom-0 h-0.5 bg-black/35">
+                <span className="block h-full bg-accent" style={{ width: `${percent}%` }} />
+              </span>
+            )}
+          </div>
+        ) : entry.imageUrl ? (
           <RemoteImage
             src={entry.imageUrl}
             proxy={imageProxy}
             referer={entry.url}
             className="ml-2 h-20 w-20 shrink-0 rounded"
           />
-        )}
+        ) : null}
       </div>
     </div>
   );
@@ -192,6 +270,10 @@ interface CardProps {
  */
 function EntryCard({ entry, selected, dimRead, feedColor, imageProxy, onSelect, onContextMenu }: CardProps) {
   const dimmed = dimRead && entry.read;
+  const isCurrent = usePlayer((s) => s.entry?.id === entry.id);
+  const playing = usePlayer((s) => s.playing);
+  const playEntry = usePlayer((s) => s.playEntry);
+  const toggle = usePlayer((s) => s.toggle);
 
   return (
     <div
@@ -209,16 +291,45 @@ function EntryCard({ entry, selected, dimRead, feedColor, imageProxy, onSelect, 
         selected && 'border-accent/60 ring-1 ring-accent/40',
       )}
     >
-      <CardImage
-        src={entry.imageUrl}
-        proxy={imageProxy}
-        referer={entry.url}
-        seed={entry.feedTitle || entry.title}
-        ratio={cardRatio(entry.id)}
-        color={feedColor}
-        title={entry.title}
-        fallback={<FeedIcon title={entry.feedTitle} iconUrl={entry.feedIcon} size={22} />}
-      />
+      <div className="relative">
+        <CardImage
+          src={entry.imageUrl}
+          proxy={imageProxy}
+          referer={entry.url}
+          seed={entry.feedTitle || entry.title}
+          ratio={cardRatio(entry.id)}
+          color={feedColor}
+          title={entry.title}
+          fallback={<FeedIcon title={entry.feedTitle} iconUrl={entry.feedIcon} size={22} />}
+        />
+        {entry.audioUrl && (
+          <button
+            type="button"
+            title={isCurrent && playing ? '暂停' : '播放这一期'}
+            aria-label={isCurrent && playing ? '暂停' : '播放这一期'}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isCurrent) void toggle();
+              else void playEntry(entry);
+            }}
+            className={cn(
+              'absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full',
+              'bg-background/90 text-fg shadow-pop backdrop-blur transition-transform active:scale-95',
+            )}
+          >
+            {isCurrent && playing ? (
+              <Pause size={14} fill="currentColor" />
+            ) : (
+              <Play size={14} fill="currentColor" className="ml-0.5" />
+            )}
+          </button>
+        )}
+        {entry.audioUrl && entry.audioDuration > 0 && (
+          <span className="absolute bottom-2 left-2 rounded-full bg-black/55 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-white backdrop-blur">
+            {formatClock(entry.audioDuration)}
+          </span>
+        )}
+      </div>
 
       <div className="p-2">
         {/* Without a picture the title already lives on the cover; repeating it
@@ -305,6 +416,10 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
   } = useUI();
   const countdownToast = useCountdownToast();
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Phones turn the smart-filter group into a floating bottom bar (§7.5).
+  const { isCompact } = useViewport();
+  // The podcast dock floats above the bottom bars; keep the last row reachable.
+  const playerActive = usePlayer((s) => Boolean(s.entry));
 
   /* Pull down from the top of the list to refresh. Stable identity so the
      gesture listeners are not re-bound on every render. */
@@ -364,13 +479,7 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
         const label =
           view === 'all'
             ? '首页'
-            : view === 'articles'
-              ? '文章'
-              : view === 'social'
-                ? '社交'
-                : view === 'pictures'
-                  ? '图片'
-                  : '视频';
+            : (VIEWS.find((v) => v.key === view)?.label ?? '文章');
         return { title: label, icon: '' };
       }
     }
@@ -428,7 +537,20 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
 
   const entryMenu = (e: React.MouseEvent, entry: Entry) => {
     e.preventDefault();
+    const player = usePlayer.getState();
+    const current = player.entry?.id === entry.id;
     openContextMenu(e.clientX, e.clientY, [
+      ...(entry.audioUrl
+        ? [
+            {
+              label: current && player.playing ? '暂停播客' : '播放这一期',
+              onSelect: () => {
+                if (current) void player.toggle();
+                else void player.playEntry(entry);
+              },
+            },
+          ]
+        : []),
       {
         label: entry.read ? '标记为未读 (M)' : '标记为已读 (M)',
         onSelect: () => void markRead([entry.id], !entry.read),
@@ -452,6 +574,97 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
         },
       },
     ]);
+  };
+
+  /* 首页 + the four smart lists, as one capsule group: in the header on wide
+     windows, as the floating bottom bar on phones (DESIGN.md §7.5). */
+  const renderSmartGroup = (compact: boolean) => {
+    const iconSize = compact ? 17 : 13;
+    const idleSize = compact ? 'w-9' : 'w-5';
+    // Only padding/gap: the height comes from the shared line below.
+    const activeSize = compact ? 'gap-1 px-2.5' : 'gap-1 px-1.5';
+    const homeActive = selection.scope === 'all' && selection.view === 'all';
+    const item = (
+      key: string,
+      active: boolean,
+      label: string,
+      icon: ReactNode,
+      count: number,
+      onSelect: () => void,
+      // CSS mount point for the icon's motion: index.css only animates
+      // `.smart-row ... .smart-icon` and `.view-tab ... .view-icon`. Dropping
+      // these classes silently turns the animated glyphs static.
+      mount: 'smart-row' | 'view-tab',
+    ) => (
+      <button
+        key={key}
+        type="button"
+        title={active ? undefined : label}
+        aria-pressed={active}
+        data-active={active}
+        data-smart={key}
+        onClick={onSelect}
+        className={cn(
+          mount,
+          'flex items-center justify-center rounded-full text-fg/50 transition-colors duration-150',
+          'hover:bg-item-hover hover:text-fg/85',
+          compact ? 'h-9' : 'h-5',
+          active ? cn(activeSize, 'bg-background text-fg shadow-sm') : idleSize,
+        )}
+      >
+        {icon}
+        {active && (
+          <span
+            className={cn('font-medium leading-none', compact ? 'text-caption' : 'text-[0.65rem]')}
+          >
+            {label}
+          </span>
+        )}
+        {active && settings.sidebarShowUnreadCount && count > 0 && (
+          <span
+            className={cn(
+              'leading-none tabular-nums text-fg/50',
+              compact ? 'text-[0.7rem]' : 'text-[0.6rem]',
+            )}
+          >
+            {count > 99 ? '99+' : count}
+          </span>
+        )}
+      </button>
+    );
+
+    return (
+      <div
+        className={cn(
+          'flex shrink-0 items-center',
+          compact
+            ? 'w-full justify-between gap-1'
+            : 'gap-0.5 rounded-full border border-border/70 bg-fill/50 p-0.5',
+        )}
+      >
+        {/* 首页 draws the animated house, so it needs the view-tab mount point. */}
+        {item(
+          'home',
+          homeActive,
+          HOME_VIEW.label,
+          <AnimatedHomeIcon size={iconSize} filled={homeActive} />,
+          counts.all,
+          () => void selectView('all'),
+          'view-tab',
+        )}
+        {SMART_FILTERS.map((filter) =>
+          item(
+            filter.scope,
+            selection.scope === filter.scope,
+            filter.label,
+            <filter.Icon size={iconSize} filled={selection.scope === filter.scope} />,
+            counts[filter.scope],
+            () => void selectSmart(filter.scope),
+            'smart-row',
+          ),
+        )}
+      </div>
+    );
   };
 
   return (
@@ -522,7 +735,7 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
                   )}
                 >
                   <span style={active ? { color: view.color } : undefined}>
-                    <ViewGlyph viewKey={view.key} />
+                    <ViewGlyph viewKey={view.key} filled={active} />
                   </span>
                   {active && (
                     <span className="text-[0.65rem] font-medium leading-none">{view.label}</span>
@@ -537,41 +750,8 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
             })}
           </div>
 
-          {/* Smart lists */}
-          <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-border/70 bg-fill/50 p-0.5">
-            {SMART_FILTERS.map(({ scope, label, Icon }) => {
-              const active = selection.scope === scope;
-              const count = counts[scope];
-              return (
-                <button
-                  key={scope}
-                  type="button"
-                  title={active ? undefined : label}
-                  aria-pressed={active}
-                  data-active={active}
-                  data-smart={scope}
-                  onClick={() => void selectSmart(scope)}
-                  className={cn(
-                    'smart-row flex h-5 items-center justify-center rounded-full',
-                    'transition-colors duration-150',
-                    active
-                      ? 'gap-1 bg-background px-1.5 text-fg shadow-sm'
-                      : 'w-5 text-fg/50 hover:bg-item-hover hover:text-fg/85',
-                  )}
-                >
-                  <Icon size={13} />
-                  {active && (
-                    <span className="text-[0.65rem] font-medium leading-none">{label}</span>
-                  )}
-                  {active && settings.sidebarShowUnreadCount && count > 0 && (
-                    <span className="text-[0.6rem] leading-none tabular-nums text-fg/50">
-                      {count > 99 ? '99+' : count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          {/* Smart lists (plus 首页). Phones move this group to the bottom bar. */}
+          {!isCompact && renderSmartGroup(false)}
         </div>
 
         <div className="flex shrink-0 items-center gap-0.5 text-fg/50">
@@ -638,7 +818,19 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
       <div
         ref={scrollRef}
         onClickCapture={pull.guardClick}
-        className="scrollbar-thin touch-pan-y relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-16 pt-2"
+        className={cn(
+          'scrollbar-thin touch-pan-y relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-2',
+          // Phones stack two floating bars at the bottom (smart filters + feed
+          // switcher), so the last cards need more clearance. The podcast dock
+          // adds one more layer when an episode is loaded.
+          isCompact
+            ? playerActive
+              ? 'pb-64'
+              : 'pb-32'
+            : playerActive
+              ? 'pb-44'
+              : 'pb-16',
+        )}
       >
         {/* Pull-to-refresh indicator: revealed by dragging down at the top. */}
         <div
@@ -768,7 +960,22 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
           aria-hidden="true"
         />
       )}
-      <div className="pointer-events-none absolute inset-x-2 bottom-2 z-30 flex flex-col gap-1.5">
+      {/* Phones: 首页/未读/星标/稍后读/今天 become the floating bottom bar, and
+          the feed switcher sits above it (DESIGN.md §7.5). */}
+      {isCompact && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className="pointer-events-auto w-full max-w-md rounded-full border border-border bg-background/70 p-1 shadow-pop backdrop-blur-xl">
+            {renderSmartGroup(true)}
+          </div>
+        </div>
+      )}
+
+      <div
+        className={cn(
+          'pointer-events-none absolute inset-x-2 z-30 flex flex-col gap-1.5',
+          isCompact ? 'bottom-20' : 'bottom-2',
+        )}
+      >
         {switcherOpen && (
           <div className="pointer-events-auto flex max-h-[min(60vh,26rem)] flex-col overflow-hidden rounded-xl border border-border bg-background/75 shadow-modal backdrop-blur-xl">
             <FeedSwitcher onNavigate={() => setSwitcherOpen(false)} />

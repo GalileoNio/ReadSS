@@ -76,6 +76,11 @@ CREATE TABLE IF NOT EXISTS entries (
 	read            INTEGER NOT NULL DEFAULT 0,
 	starred         INTEGER NOT NULL DEFAULT 0,
 	read_later      INTEGER NOT NULL DEFAULT 0,
+	audio_url       TEXT    NOT NULL DEFAULT '',
+	audio_type      TEXT    NOT NULL DEFAULT '',
+	audio_duration  INTEGER NOT NULL DEFAULT 0,
+	audio_position  INTEGER NOT NULL DEFAULT 0,
+	audio_played    INTEGER NOT NULL DEFAULT 0,
 	UNIQUE(feed_id, guid)
 );
 CREATE INDEX IF NOT EXISTS idx_entries_feed_pub  ON entries(feed_id, published_at DESC);
@@ -151,6 +156,11 @@ func (s *Store) migrate() error {
 		{"entries", "comments", "TEXT NOT NULL DEFAULT ''"},
 		{"entries", "comments_count", "INTEGER NOT NULL DEFAULT 0"},
 		{"entries", "comments_at", "INTEGER NOT NULL DEFAULT 0"},
+		{"entries", "audio_url", "TEXT NOT NULL DEFAULT ''"},
+		{"entries", "audio_type", "TEXT NOT NULL DEFAULT ''"},
+		{"entries", "audio_duration", "INTEGER NOT NULL DEFAULT 0"},
+		{"entries", "audio_position", "INTEGER NOT NULL DEFAULT 0"},
+		{"entries", "audio_played", "INTEGER NOT NULL DEFAULT 0"},
 		{"feeds", "icon_at", "INTEGER NOT NULL DEFAULT 0"},
 		{"feeds", "color", "TEXT NOT NULL DEFAULT ''"},
 		{"comment_recipes", "asset_base", "TEXT NOT NULL DEFAULT ''"},
@@ -770,13 +780,15 @@ func (s *Store) ReorderFeeds(ids []int64) error {
 // upsertEntry inserts an entry or refreshes its content if already present.
 // User state (read / starred / readLater) is never touched by an update, so
 // re-fetching a feed can never mark items unread again.
-func (s *Store) upsertEntry(tx *sql.Tx, feedID int64, guid, title, link, author, summary, content, imageURL string, publishedAt int64) (bool, error) {
+func (s *Store) upsertEntry(tx *sql.Tx, feedID int64, guid, title, link, author, summary, content, imageURL string, publishedAt int64, audioURL, audioType string, audioDuration int) (bool, error) {
 	res, err := tx.Exec(`
 		INSERT OR IGNORE INTO entries
 			(feed_id, guid, title, url, author, summary, content, image_url,
-			 published_at, fetched_at, read, starred, read_later)
-		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0)`,
-		feedID, guid, title, link, author, summary, content, imageURL, publishedAt, nowMS())
+			 published_at, fetched_at, read, starred, read_later,
+			 audio_url, audio_type, audio_duration)
+		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?, ?)`,
+		feedID, guid, title, link, author, summary, content, imageURL, publishedAt, nowMS(),
+		audioURL, audioType, audioDuration)
 	if err != nil {
 		return false, err
 	}
@@ -784,19 +796,25 @@ func (s *Store) upsertEntry(tx *sql.Tx, feedID int64, guid, title, link, author,
 		return true, nil
 	}
 
-	// Already known: refresh only the feed-supplied content.
+	// Already known: refresh only the feed-supplied content. Playback position
+	// and played state are the reader's, so they are never touched here.
 	_, err = tx.Exec(`
 		UPDATE entries
-		SET title        = ?,
-		    url          = CASE WHEN ? <> '' THEN ? ELSE url END,
-		    author       = CASE WHEN ? <> '' THEN ? ELSE author END,
-		    summary      = CASE WHEN ? <> '' THEN ? ELSE summary END,
-		    content      = CASE WHEN ? <> '' THEN ? ELSE content END,
-		    image_url    = CASE WHEN ? <> '' THEN ? ELSE image_url END,
-		    published_at = CASE WHEN ? > 0 THEN ? ELSE published_at END
+		SET title          = ?,
+		    url            = CASE WHEN ? <> '' THEN ? ELSE url END,
+		    author         = CASE WHEN ? <> '' THEN ? ELSE author END,
+		    summary        = CASE WHEN ? <> '' THEN ? ELSE summary END,
+		    content        = CASE WHEN ? <> '' THEN ? ELSE content END,
+		    image_url      = CASE WHEN ? <> '' THEN ? ELSE image_url END,
+		    published_at   = CASE WHEN ? > 0 THEN ? ELSE published_at END,
+		    audio_url      = CASE WHEN ? <> '' THEN ? ELSE audio_url END,
+		    audio_type     = CASE WHEN ? <> '' THEN ? ELSE audio_type END,
+		    audio_duration = CASE WHEN ? > 0 THEN ? ELSE audio_duration END
 		WHERE feed_id = ? AND guid = ?`,
 		title, link, link, author, author, summary, summary,
-		content, content, imageURL, imageURL, publishedAt, publishedAt, feedID, guid)
+		content, content, imageURL, imageURL, publishedAt, publishedAt,
+		audioURL, audioURL, audioType, audioType, audioDuration, audioDuration,
+		feedID, guid)
 	return false, err
 }
 
@@ -811,7 +829,8 @@ func (s *Store) SaveEntries(feedID int64, items []FeedItem) (int, error) {
 	inserted := 0
 	for _, it := range items {
 		isNew, err := s.upsertEntry(tx, feedID, it.GUID, it.Title, it.URL, it.Author,
-			it.Summary, it.Content, it.ImageURL, it.PublishedAt)
+			it.Summary, it.Content, it.ImageURL, it.PublishedAt,
+			it.AudioURL, it.AudioType, it.AudioDuration)
 		if err != nil {
 			return inserted, err
 		}
@@ -835,6 +854,10 @@ type FeedItem struct {
 	Content     string
 	ImageURL    string
 	PublishedAt int64
+	// AudioURL is set for podcast episodes (RSS enclosure or <audio> source).
+	AudioURL      string
+	AudioType     string
+	AudioDuration int
 }
 
 func buildFilters(q model.ListQuery) (where []string, args []any) {
@@ -903,7 +926,8 @@ func (s *Store) QueryEntries(q model.ListQuery) (*model.EntryPage, error) {
 	rows, err := s.db.Query(`
 		SELECT e.id, e.feed_id, f.title, f.icon_url, f.view, e.title, e.url, e.author,
 		       e.summary, e.image_url, e.published_at, e.read, e.starred, e.read_later,
-		       (e.content <> '') AS has_content
+		       (e.content <> '') AS has_content,
+		       e.audio_url, e.audio_type, e.audio_duration, e.audio_position, e.audio_played
 		FROM entries e
 		JOIN feeds f ON f.id = e.feed_id`+clause+`
 		ORDER BY e.published_at `+dir+`, e.id `+dir+`
@@ -918,7 +942,8 @@ func (s *Store) QueryEntries(q model.ListQuery) (*model.EntryPage, error) {
 		e := &model.Entry{}
 		if err := rows.Scan(&e.ID, &e.FeedID, &e.FeedTitle, &e.FeedIcon, &e.FeedView,
 			&e.Title, &e.URL, &e.Author, &e.Summary, &e.ImageURL, &e.PublishedAt,
-			&e.Read, &e.Starred, &e.ReadLater, &e.HasContent); err != nil {
+			&e.Read, &e.Starred, &e.ReadLater, &e.HasContent,
+			&e.AudioURL, &e.AudioType, &e.AudioDuration, &e.AudioPosition, &e.AudioPlayed); err != nil {
 			return nil, err
 		}
 		page.Entries = append(page.Entries, e)
@@ -943,14 +968,16 @@ func (s *Store) EntryDetail(id int64) (*model.EntryDetail, error) {
 		SELECT e.id, e.feed_id, f.title, f.icon_url, f.view, e.title, e.url, e.author,
 		       e.summary, e.image_url, e.published_at, e.read, e.starred, e.read_later,
 		       (e.content <> '' OR e.full_content <> ''), e.content, e.full_content,
-		       e.comments, e.comments_count, COALESCE(f.site_url, '')
+		       e.comments, e.comments_count, COALESCE(f.site_url, ''),
+		       e.audio_url, e.audio_type, e.audio_duration, e.audio_position, e.audio_played
 		FROM entries e
 		JOIN feeds f ON f.id = e.feed_id
 		WHERE e.id = ?`, id).
 		Scan(&d.ID, &d.FeedID, &d.FeedTitle, &d.FeedIcon, &d.FeedView, &d.Title,
 			&d.URL, &d.Author, &d.Summary, &d.ImageURL, &d.PublishedAt, &d.Read,
 			&d.Starred, &d.ReadLater, &d.HasContent, &feedContent, &fullContent,
-			&d.Comments, &d.CommentsCount, &d.SiteURL)
+			&d.Comments, &d.CommentsCount, &d.SiteURL,
+			&d.AudioURL, &d.AudioType, &d.AudioDuration, &d.AudioPosition, &d.AudioPlayed)
 	if err != nil {
 		return nil, err
 	}
@@ -1047,6 +1074,35 @@ func (s *Store) SetComments(id int64, html string, count int) error {
 	_, err := s.db.Exec(
 		`UPDATE entries SET comments = ?, comments_count = ?, comments_at = ? WHERE id = ?`,
 		html, count, nowMS(), id)
+	return err
+}
+
+// SaveAudioProgress records where podcast playback stopped. A finished episode
+// is also marked read: the reader consumed it, so it should leave the unread
+// list even though no article was opened. User state is never reset here.
+//
+// The player's measured duration fills in a missing feed duration; a known
+// feed duration is kept, because some players report a shorter value when the
+// file uses a different encoding.
+func (s *Store) SaveAudioProgress(id, positionMS int64, durationSec int, completed bool) error {
+	if positionMS < 0 {
+		positionMS = 0
+	}
+	if durationSec > 0 && positionMS >= int64(durationSec)*1000-2000 {
+		completed = true
+	}
+	done := 0
+	if completed {
+		done = 1
+	}
+	_, err := s.db.Exec(`
+		UPDATE entries
+		SET audio_position = ?,
+		    audio_duration = CASE WHEN audio_duration <= 0 AND ? > 0 THEN ? ELSE audio_duration END,
+		    audio_played   = CASE WHEN ? = 1 THEN 1 ELSE audio_played END,
+		    read           = CASE WHEN ? = 1 THEN 1 ELSE read END
+		WHERE id = ?`,
+		positionMS, durationSec, durationSec, done, done, id)
 	return err
 }
 

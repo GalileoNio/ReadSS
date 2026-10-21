@@ -41,6 +41,15 @@ export interface Entry {
   starred: boolean;
   readLater: boolean;
   hasContent: boolean;
+  /** Episode file; empty for non-audio entries. */
+  audioUrl: string;
+  audioType: string;
+  /** Feed-declared duration in seconds (0 when unknown). */
+  audioDuration: number;
+  /** Saved resume point in milliseconds. */
+  audioPosition: number;
+  /** The episode was played to its end. */
+  audioPlayed: boolean;
 }
 
 export interface EntryDetail extends Entry {
@@ -121,6 +130,23 @@ export interface FeedSuggestion {
   score: number;
 }
 
+/** A real show from the Apple Podcasts directory; `url` is its RSS feed. */
+export interface PodcastSuggestion {
+  title: string;
+  author: string;
+  url: string;
+  pageUrl: string;
+  artworkUrl: string;
+  genre: string;
+  description: string;
+  episodeCount: number;
+  /** Newest episode, unix milliseconds (0 = unknown). */
+  lastEpisodeAt: number;
+  /** One phrase saying why the show was picked. */
+  reason: string;
+  score: number;
+}
+
 export interface Bootstrap {
   categories: Category[];
   feeds: Feed[];
@@ -167,7 +193,7 @@ export interface AppInfo {
 /* ------------------------------------------------------------------ views */
 
 export type Scope = 'all' | 'unread' | 'starred' | 'readLater' | 'feed' | 'category' | 'today';
-export type ViewKey = 'articles' | 'social' | 'pictures' | 'videos';
+export type ViewKey = 'articles' | 'social' | 'pictures' | 'videos' | 'audio';
 
 export interface ViewDefinition {
   key: ViewKey | 'all';
@@ -176,13 +202,19 @@ export interface ViewDefinition {
   color: string;
 }
 
+/** The five content tabs. Each one carries one kind of subscription: RSS
+ *  articles, social posts, photo streams, video channels and podcasts. */
 export const VIEWS: ViewDefinition[] = [
-  { key: 'all', label: '首页', color: '#FF5C00' },
   { key: 'articles', label: '文章', color: '#84CC16' },
   { key: 'social', label: '社交', color: '#0EA5E9' },
   { key: 'pictures', label: '图片', color: '#22C55E' },
   { key: 'videos', label: '视频', color: '#EF4444' },
+  { key: 'audio', label: '音频', color: '#A855F7' },
 ];
+
+/** The home tab ("everything") now lives in the smart-list capsule group
+ *  next to unread/starred/read-later/today (DESIGN.md §7.5). */
+export const HOME_VIEW: ViewDefinition = { key: 'all', label: '首页', color: '#FF5C00' };
 
 /** Folo's selectable accent presets, as light/dark pairs. */
 export const ACCENTS: Record<string, { light: string; dark: string; label: string }> = {

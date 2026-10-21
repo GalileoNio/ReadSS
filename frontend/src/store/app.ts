@@ -84,6 +84,13 @@ interface AppState {
   markAllRead: () => Promise<number>;
   toggleStar: (id: number) => Promise<void>;
   toggleReadLater: (id: number) => Promise<void>;
+  /** Mirrors saved podcast progress into the timeline without a reload. */
+  applyPlayback: (
+    id: number,
+    positionMs: number,
+    durationSec: number,
+    completed: boolean,
+  ) => void;
   step: (delta: number) => Promise<void>;
 
   refresh: (feedIds?: number[]) => Promise<void>;
@@ -404,6 +411,20 @@ export const useApp = create<AppState>((set, get) => ({
     set({ entries: patchEntries(get().entries, [id], { readLater }) });
     if (get().entry?.id === id) set({ entry: { ...get().entry!, readLater } });
     set({ counts: await api.getCounts() });
+  },
+
+  applyPlayback(id, positionMs, durationSec, completed) {
+    const patch: Partial<Entry> = { audioPosition: positionMs };
+    if (durationSec > 0) patch.audioDuration = durationSec;
+    if (completed) {
+      patch.audioPlayed = true;
+      patch.read = true;
+    }
+    set({ entries: patchEntries(get().entries, [id], patch) });
+    if (get().entry?.id === id) set({ entry: { ...get().entry!, ...patch } });
+    // Completing an episode changes unread counts and the feed's badge, but the
+    // timeline order must not move while it is playing (DESIGN.md §7.13).
+    if (completed) void get().reloadSubscriptions();
   },
 
   /** Move the selection by delta, as J/K and the arrow keys do. */

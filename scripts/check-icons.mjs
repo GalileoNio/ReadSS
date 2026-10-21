@@ -21,7 +21,10 @@ const VIEW_ICONS = {
   social: 'AnimatedSocialIcon',
   pictures: 'AnimatedPicturesIcon',
   videos: 'AnimatedVideosIcon',
+  audio: 'AnimatedAudioIcon',
 };
+/** 首页 moved into the smart-list group; it still owns the animated house. */
+const HOME_ICON = 'AnimatedHomeIcon';
 /** Smart lists use motion variants of the canonical lucide glyph (DESIGN.md §7.5). */
 const SMART_LIST_ICONS = {
   unread: 'SmartUnreadIcon',
@@ -99,6 +102,12 @@ for (const [key, icon] of Object.entries(VIEW_ICONS)) {
     problems.push(`AnimatedIcons.tsx does not export ${icon}`);
   }
 }
+if (viewImported && !new RegExp(`\\b${HOME_ICON}\\b`).test(viewImported[1])) {
+  problems.push(`首页 (smart group) must import ${HOME_ICON} from ./AnimatedIcons`);
+}
+if (!new RegExp(`export function ${HOME_ICON}\\b`).test(animatedSource)) {
+  problems.push(`AnimatedIcons.tsx does not export ${HOME_ICON}`);
+}
 
 /* 3. Smart lists must match the canonical mapping, and the animated variants
    must actually be imported from their own module (not re-created inline).
@@ -138,7 +147,18 @@ if (!listsBlock) {
 
 }
 
-/* 4. Retired icons must not come back anywhere in the frontend. */
+/* 4. Motion mount points. index.css only animates `.smart-row … .smart-icon`
+   and `.view-tab … .view-icon`; losing either class silently turns the animated
+   glyphs static, which type-checking and review both miss. */
+for (const mount of ['smart-row', 'view-tab']) {
+  if (!entryListSource.includes(mount)) {
+    problems.push(
+      `EntryList.tsx lost the \`${mount}\` mount class — its animated icons would stop moving`,
+    );
+  }
+}
+
+/* 5. Retired icons must not come back anywhere in the frontend. */
 const files = ['components/Sidebar.tsx', 'components/Reader.tsx', 'components/EntryList.tsx',
   'components/dialogs.tsx', 'components/CommandPalette.tsx', 'components/overlays.tsx',
   'components/primitives.tsx', 'App.tsx'];

@@ -16,6 +16,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -282,16 +283,95 @@ func (f *Fetcher) normalizeItem(it *gofeed.Item) store.FeedItem {
 		title = Truncate(summary, 90)
 	}
 
-	return store.FeedItem{
-		GUID:        guid,
-		Title:       title,
-		URL:         strings.TrimSpace(it.Link),
-		Author:      author,
-		Summary:     summary,
-		Content:     content,
-		ImageURL:    image,
-		PublishedAt: published,
+	audioURL, audioType := audioSource(it, content)
+	audioDuration := 0
+	if audioURL != "" {
+		audioDuration = parseAudioDuration(it)
 	}
+
+	return store.FeedItem{
+		GUID:          guid,
+		Title:         title,
+		URL:           strings.TrimSpace(it.Link),
+		Author:        author,
+		Summary:       summary,
+		Content:       content,
+		ImageURL:      image,
+		PublishedAt:   published,
+		AudioURL:      audioURL,
+		AudioType:     audioType,
+		AudioDuration: audioDuration,
+	}
+}
+
+// audioSource finds the episode file. Podcast feeds put it in an enclosure;
+// some blog-style feeds embed an <audio> player instead. Video enclosures are
+// deliberately ignored, so a video feed never becomes an audio episode.
+func audioSource(it *gofeed.Item, content string) (string, string) {
+	for _, enc := range it.Enclosures {
+		if enc == nil || strings.TrimSpace(enc.URL) == "" {
+			continue
+		}
+		if strings.HasPrefix(strings.ToLower(enc.Type), "audio/") || audioFileURL(enc.URL) {
+			return strings.TrimSpace(enc.URL), strings.TrimSpace(enc.Type)
+		}
+	}
+	if u := FirstAudioURL(content); u != "" {
+		return u, ""
+	}
+	return "", ""
+}
+
+// audioFileURL is the fallback when a feed forgets the enclosure's MIME type.
+func audioFileURL(raw string) bool {
+	lower := strings.ToLower(raw)
+	if i := strings.IndexAny(lower, "?#"); i >= 0 {
+		lower = lower[:i]
+	}
+	for _, ext := range []string{".mp3", ".m4a", ".aac", ".ogg", ".opus", ".wav", ".flac"} {
+		if strings.HasSuffix(lower, ext) {
+			return true
+		}
+	}
+	return false
+}
+
+// parseAudioDuration reads iTunes' duration, which is either seconds ("3723")
+// or colon-separated ("1:02:03"). Other formats are left at zero; the player
+// fills the real duration in once the file's metadata loads.
+func parseAudioDuration(it *gofeed.Item) int {
+	if it.ITunesExt == nil {
+		return 0
+	}
+	return ParseDurationSeconds(it.ITunesExt.Duration)
+}
+
+// ParseDurationSeconds converts an iTunes-style duration to whole seconds.
+func ParseDurationSeconds(raw string) int {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0
+	}
+	parts := strings.Split(raw, ":")
+	if len(parts) > 3 {
+		return 0
+	}
+	if len(parts) == 1 {
+		seconds, err := strconv.ParseFloat(raw, 64)
+		if err != nil || seconds < 0 {
+			return 0
+		}
+		return int(seconds)
+	}
+	total := 0
+	for _, part := range parts {
+		n, err := strconv.Atoi(strings.TrimSpace(part))
+		if err != nil || n < 0 {
+			return 0
+		}
+		total = total*60 + n
+	}
+	return total
 }
 
 // SelfTestDiscovery covers the offline parts of feed discovery: the host-twin

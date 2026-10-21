@@ -11,6 +11,8 @@ const (
 	ViewSocial   = "social"
 	ViewPictures = "pictures"
 	ViewVideos   = "videos"
+	// ViewAudio holds podcast subscriptions: shows whose entries are episodes.
+	ViewAudio = "audio"
 )
 
 // Scope values select what a timeline query shows.
@@ -69,6 +71,15 @@ type Entry struct {
 	Starred     bool   `json:"starred"`
 	ReadLater   bool   `json:"readLater"`
 	HasContent  bool   `json:"hasContent"`
+
+	// Podcast episode fields. AudioURL is empty for every non-audio entry;
+	// AudioPosition is the resume point in milliseconds, AudioPlayed marks an
+	// episode that reached its end.
+	AudioURL      string `json:"audioUrl"`
+	AudioType     string `json:"audioType"`
+	AudioDuration int    `json:"audioDuration"`
+	AudioPosition int64  `json:"audioPosition"`
+	AudioPlayed   bool   `json:"audioPlayed"`
 }
 
 // EntryDetail adds the fields only needed by the reader pane.
@@ -223,6 +234,24 @@ type FeedSuggestion struct {
 	Tags        []string `json:"tags"`
 	// Score is the interest match; the frontend only uses it for ordering.
 	Score int `json:"score"`
+}
+
+// PodcastSuggestion is a real show from the Apple Podcasts directory, with the
+// RSS feed it publishes, so following it subscribes to that feed directly.
+type PodcastSuggestion struct {
+	Title        string `json:"title"`
+	Author       string `json:"author"`
+	URL          string `json:"url"`
+	PageURL      string `json:"pageUrl"`
+	ArtworkURL   string `json:"artworkUrl"`
+	Genre        string `json:"genre"`
+	Description  string `json:"description"`
+	EpisodeCount int    `json:"episodeCount"`
+	// LastEpisodeAt is the newest episode's time in unix milliseconds (0 = unknown).
+	LastEpisodeAt int64 `json:"lastEpisodeAt"`
+	// Reason says in one phrase why the show was picked.
+	Reason string `json:"reason"`
+	Score  int    `json:"score"`
 }
 
 // RefreshResult summarises one refresh pass.
