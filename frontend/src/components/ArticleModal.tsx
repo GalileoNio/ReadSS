@@ -21,6 +21,45 @@ const IMAGE_FLIGHT = 420;
 /** The return flight, slightly quicker. */
 const IMAGE_RETURN = 360;
 
+interface Box {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Where a `object-contain` picture actually sits inside its box.
+ *
+ * The detail hero shows the whole picture, so the visible image is letterboxed;
+ * the flying layer must land on that visible rectangle (where cover and contain
+ * agree) rather than on the full-width box, otherwise the picture would jump
+ * when the hero takes over.
+ */
+function containedBox(box: Box, img: HTMLImageElement | null): Box {
+  if (!img || !img.naturalWidth || !img.naturalHeight) return box;
+  const natural = img.naturalWidth / img.naturalHeight;
+  const boxRatio = box.width / box.height;
+  let width = box.width;
+  let height = box.height;
+  if (natural > boxRatio) {
+    height = width / natural;
+  } else {
+    width = height * natural;
+  }
+  return {
+    x: box.x + (box.width - width) / 2,
+    y: box.y + (box.height - height) / 2,
+    width,
+    height,
+  };
+}
+
+/** The hero's own picture (the contain layer), not its blurred backdrop. */
+function heroPicture(hero: HTMLElement | null): HTMLImageElement | null {
+  return hero?.querySelector<HTMLImageElement>('img:not([aria-hidden])') ?? null;
+}
+
 /**
  * Article detail dialog, following Xiaohongshu's note modal: the article is the
  * large left pane and a narrow right rail holds the author and the comment
@@ -28,10 +67,10 @@ const IMAGE_RETURN = 360;
  * squeezed beside the article.
  *
  * The transition is a shared-element one (DESIGN.md §7.11): the card's picture
- * is shown at the card's rectangle in a fixed overlay and flies to the detail
- * hero's rectangle, because that hero is the very same picture. The panel fades
- * and grows around it, so the dialog reads as the card opening up rather than
- * as a separate window appearing.
+ * is shown at the card's rectangle in a fixed overlay and flies to the visible
+ * rectangle of the detail hero, because that hero is the very same picture. The
+ * panel fades and grows around it, so the dialog reads as the card opening up
+ * rather than as a separate window appearing.
  */
 export function ArticleModal() {
   const selectedEntryId = useApp((s) => s.selectedEntryId);
@@ -199,62 +238,39 @@ export function ArticleModal() {
 
     hero.style.opacity = '0';
 
-    const radius = parseFloat(getComputedStyle(hero).borderTopLeftRadius) || 12;
-
-    ghostEl.style.transition = 'none';
-    ghostEl.style.left = `${from.x}px`;
-    ghostEl.style.top = `${from.y}px`;
-    ghostEl.style.width = `${from.width}px`;
-    ghostEl.style.height = `${from.height}px`;
-    ghostEl.style.borderRadius = '8px';
-    ghostEl.style.opacity = '1';
-    void ghostEl.offsetWidth;
-
-    // The box itself is animated rather than scaled: the picture is `cover`ed,
-    // so it re-crops as it grows instead of stretching on the way.
+    const radiusRaw = parseFloat(getComputedStyle(hero).borderTopLeftRadius);
+    const radius = Number.isFinite(radiusRaw) ? radiusRaw : 12;
     const ease = 'cubic-bezier(0.22, 0.8, 0.24, 1)';
-    ghostEl.style.transition = [
-      `left ${IMAGE_FLIGHT}ms ${ease}`,
-      `top ${IMAGE_FLIGHT}ms ${ease}`,
-      `width ${IMAGE_FLIGHT}ms ${ease}`,
-      `height ${IMAGE_FLIGHT}ms ${ease}`,
-      `border-radius ${IMAGE_FLIGHT}ms ease`,
-    ].join(', ');
-    ghostEl.style.left = `${to.x}px`;
-    ghostEl.style.top = `${to.y}px`;
-    ghostEl.style.width = `${to.width}px`;
-    ghostEl.style.height = `${to.height}px`;
-    ghostEl.style.borderRadius = `${radius}px`;
 
     let landed = false;
     const land = () => {
       if (landed) return;
       landed = true;
 
-      // Hand off in a single frame. The ghost already sits exactly on the hero
-      // rectangle with the same picture, so an instant swap is invisible. A
-      // cross-fade would flash instead: the hero's own image can still be
-      // decoding (or mid blur-to-sharp), so one layer would show a placeholder.
+      // The ghost has landed exactly on the picture that the hero shows, so the
+      // hero can fade in underneath it: the picture itself does not move or
+      // change, only the blurred bands around it appear.
       const commit = () => {
         if (closingRef.current) return;
-        hero.style.transition = 'none';
+        hero.style.transition = 'opacity 140ms ease-out';
         hero.style.opacity = '1';
-        if (ghostRef.current) {
-          ghostRef.current.style.transition = 'none';
-          ghostRef.current.style.opacity = '0';
+        window.setTimeout(() => {
+          if (closingRef.current) return;
+          const ghost = ghostRef.current;
+          if (!ghost) return;
+          ghost.style.transition = 'none';
+          ghost.style.opacity = '0';
           // Keep the element mounted but hidden: the return flight needs it.
-          ghostRef.current.style.display = 'none';
-        }
+          ghost.style.display = 'none';
+        }, 150);
       };
 
-      const img = hero.querySelector('img');
+      const img = heroPicture(hero);
       if (!img) {
         commit();
         return;
       }
-      const decoded = img.decode
-        ? img.decode().catch(() => undefined)
-        : Promise.resolve();
+      const decoded = img.decode ? img.decode().catch(() => undefined) : Promise.resolve();
       if (img.complete) {
         void decoded.then(commit);
         return;
@@ -264,9 +280,54 @@ export function ArticleModal() {
       // ghost floating over the article.
       window.setTimeout(commit, 400);
     };
-    ghostEl.addEventListener('transitionend', land, { once: true });
-    // A transition that never finishes (tab hidden, image swap) must still land.
-    window.setTimeout(land, IMAGE_FLIGHT + 120);
+
+    let started = false;
+    const start = () => {
+      if (started) return;
+      started = true;
+
+      // The hero shows the whole picture (`object-contain`), so the flight must
+      // land on that visible rectangle, not on the full-width box: there cover
+      // and contain agree and the hand-off cannot jump.
+      const target = containedBox(to, heroPicture(hero));
+
+      ghostEl.style.transition = 'none';
+      ghostEl.style.left = `${from.x}px`;
+      ghostEl.style.top = `${from.y}px`;
+      ghostEl.style.width = `${from.width}px`;
+      ghostEl.style.height = `${from.height}px`;
+      ghostEl.style.borderRadius = '8px';
+      ghostEl.style.opacity = '1';
+      void ghostEl.offsetWidth;
+
+      // The box itself is animated rather than scaled: the picture is `cover`ed,
+      // so it re-crops as it grows instead of stretching on the way.
+      ghostEl.style.transition = [
+        `left ${IMAGE_FLIGHT}ms ${ease}`,
+        `top ${IMAGE_FLIGHT}ms ${ease}`,
+        `width ${IMAGE_FLIGHT}ms ${ease}`,
+        `height ${IMAGE_FLIGHT}ms ${ease}`,
+        `border-radius ${IMAGE_FLIGHT}ms ease`,
+      ].join(', ');
+      ghostEl.style.left = `${target.x}px`;
+      ghostEl.style.top = `${target.y}px`;
+      ghostEl.style.width = `${target.width}px`;
+      ghostEl.style.height = `${target.height}px`;
+      ghostEl.style.borderRadius = `${radius}px`;
+
+      ghostEl.addEventListener('transitionend', land, { once: true });
+      // A transition that never finishes (tab hidden, image swap) must land.
+      window.setTimeout(land, IMAGE_FLIGHT + 120);
+    };
+
+    const picture = heroPicture(hero);
+    if (picture && !picture.complete) {
+      // The letterboxing is only known once the picture's intrinsic size is.
+      picture.addEventListener('load', start, { once: true });
+      window.setTimeout(start, 400);
+    } else {
+      start();
+    }
   }, [entry, selectedEntryId, reducedMotion]);
 
   /* Fold back into the card, then unmount. Every close path goes through this
@@ -317,7 +378,9 @@ export function ArticleModal() {
 
     let imageMs = 0;
     if (panel && origin?.image && ghostEl && hero && heroRect && heroRect.width > 0 && !reducedMotion) {
-      const from = heroRect;
+      // Start from the picture the hero actually shows (letterboxed inside its
+      // box), so the first frame of the return matches it exactly.
+      const from = containedBox(heroRect, heroPicture(hero));
       const to = origin.image;
 
       ghostEl.style.transition = 'none';
@@ -326,8 +389,11 @@ export function ArticleModal() {
       ghostEl.style.top = `${from.y}px`;
       ghostEl.style.width = `${from.width}px`;
       ghostEl.style.height = `${from.height}px`;
-      ghostEl.style.borderRadius = '12px';
+      ghostEl.style.borderRadius = '0px';
       ghostEl.style.opacity = '1';
+      // Fade the hero out instead of hiding it in one frame: its blurred bands
+      // would otherwise disappear abruptly at the very start of the exit.
+      hero.style.transition = 'opacity 160ms ease-in';
       hero.style.opacity = '0';
       void ghostEl.offsetWidth;
 
@@ -440,7 +506,13 @@ export function ArticleModal() {
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                 }
-              : { background: coverTint(ghost.seed, ghost.color) }),
+              : {
+                  // The drawn cover's tint is translucent, but the flying layer
+                  // must look exactly like the card/hero it comes from: paint
+                  // it over the theme surface so it is opaque. A translucent
+                  // ghost pops when the hero's opaque cover replaces it.
+                  background: `linear-gradient(${coverTint(ghost.seed, ghost.color)}, ${coverTint(ghost.seed, ghost.color)}), hsl(var(--fo-background))`,
+                }),
           }}
         >
           {ghost.kind === 'text' && (

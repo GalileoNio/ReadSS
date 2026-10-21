@@ -397,6 +397,21 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
     [feeds],
   );
 
+  /* Waterfall tracks: 2 on a phone, up to 5 on a wide page. */
+  const [columns, setColumns] = useState(2);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const measure = () => {
+      const width = el.clientWidth;
+      setColumns(width >= 1200 ? 5 : width >= 900 ? 4 : width >= 640 ? 3 : 2);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const handleMarkAll = () => {
     if (total === 0) {
       pushToast({ message: '当前列表没有文章', tone: 'info' });
@@ -653,35 +668,43 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
         )}
 
         {masonry ? (
-          /* Waterfall: 2 columns on a phone, up to 5 on a wide page. Each card
-             keeps its own height, so the columns interlock. Date group headers
-             are omitted here because a sticky header cannot span a multi-column
-             flow. */
+          /* Waterfall built from real columns rather than CSS multi-column:
+             a multi-column flow re-balances whenever anything is appended, so
+             loading the next page moved every card already on screen. With one
+             flex column per track, new entries can only grow a column downward
+             and every existing card keeps its position (DESIGN.md §7.7). */
           entries.length > 0 && (
-            <div className="columns-2 gap-3 [column-fill:balance] min-[640px]:columns-3 min-[900px]:columns-4 min-[1200px]:columns-5">
-              {entries.map((entry) => (
-                <div
-                  key={entry.id}
-                  className={cn(
-                    'mb-3 break-inside-avoid',
-                    // The card IS the article modal while it is open: keep the
-                    // slot in the wall (no reflow) but leave it empty. It comes
-                    // back once the modal has shrunk into it (DESIGN.md §7.11).
-                    entry.id === selectedEntryId && 'invisible',
-                  )}
-                >
-                  <EntryCard
-                    entry={entry}
-                    selected={entry.id === selectedEntryId}
-                    dimRead={settings.dimRead}
-                    feedColor={feedColors.get(entry.feedId)}
-                    imageProxy={imageProxy}
-                    onSelect={(e, el) => {
-                      setDetailOrigin(detailOriginOf(el, e, feedColors.get(e.feedId)));
-                      void openEntry(e.id);
-                    }}
-                    onContextMenu={entryMenu}
-                  />
+            <div data-wall="masonry" className="flex items-start gap-3">
+              {Array.from({ length: columns }, (_, col) => (
+                <div key={col} data-column={col} className="flex min-w-0 flex-1 flex-col gap-3">
+                  {entries
+                    .filter((_, index) => index % columns === col)
+                    .map((entry) => (
+                      <div
+                        key={entry.id}
+                        data-entry-id={entry.id}
+                        className={cn(
+                          // The card IS the article modal while it is open: keep
+                          // the slot in the wall (no reflow) but leave it empty.
+                          // It comes back once the modal has shrunk into it
+                          // (DESIGN.md §7.11).
+                          entry.id === selectedEntryId && 'invisible',
+                        )}
+                      >
+                        <EntryCard
+                          entry={entry}
+                          selected={entry.id === selectedEntryId}
+                          dimRead={settings.dimRead}
+                          feedColor={feedColors.get(entry.feedId)}
+                          imageProxy={imageProxy}
+                          onSelect={(e, el) => {
+                            setDetailOrigin(detailOriginOf(el, e, feedColors.get(e.feedId)));
+                            void openEntry(e.id);
+                          }}
+                          onContextMenu={entryMenu}
+                        />
+                      </div>
+                    ))}
                 </div>
               ))}
             </div>

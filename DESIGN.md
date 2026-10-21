@@ -548,6 +548,18 @@ h-10 border-b border-border px-4
 - **头图满幅**：主图**没有上、左、右边距**，也不圆角，紧贴文章列的三条边，
   像笔记封面一样；浮动工具条改成它的浮层（`sticky top-0` + `-mb-[54px]` 抵消自身高度），
   压在图片右上角，不再把图片往下推。
+- **头图材质（完整显示 + 模糊填充）**：主图 `object-contain`，**整张显示、不裁切**；
+  两侧留白用同一张图的高斯模糊填满：
+  1. 模糊层 `object-cover` + `blur-xl`(24px) + **`scale-150`**——
+     `filter: blur` 会把图片自身边缘淡成半透明，必须放大到模糊裙边被父级
+     `overflow-hidden` 裁掉之外，否则两侧会露出后面的底色（早期没放大，
+     看起来就像“品牌色”而不是模糊图片）；
+  2. 模糊层之上用**悬浮胶囊条同一套材质**：`bg-background/70 backdrop-blur-xl`
+     （主题表面色 70% + 24px 背景模糊），把模糊图变成磨砂玻璃，而不是盖一层白纱；
+     这套材质与底部悬浮条、悬浮切换器一致（§7.6）；
+  3. **模糊层后面不放品牌色**：容器底色只用该订阅源的**淡色**（`coverTint`，14% 透明度）；
+     饱和的品牌色渐变只用于列表缩略图的加载占位；
+  4. 前景图叠在模糊层之上，`object-contain` 居中。
 - **工具条**：已读 / 星标 / 稍后读 / 复制 / 打开原站，外加**获取全文**
   （`FileText`，获取中显示 `Spinner`）；文章内只保留「全文 / 原文」切换与
   「重新获取 / 清除」，且位于头图下方。
@@ -639,3 +651,20 @@ h-10 border-b border-border px-4
 - **重新生成**：修改 `appicon.svg` 后运行
   `node build/app-icon-render.mjs` → `python build/icons/build-icon.py`，再用
   `build/icons/make-syso.ps1` 重建 `.syso`（或运行打包脚本），最后确认 exe 的关联图标。
+### 7.13 列表位置稳定性
+
+文章的已读状态**不允许改变卡片在列表/瀑布流里的位置**。
+
+- 卡片的位置只由查询决定：`ListQuery` 的排序（`published_at`，加 `id` 兜底）与当前筛选条件。
+  已读/星标/稍后读都只是同一张卡片的标记，不参与排序。
+- 标记只做**本地 patch**（`patchEntries`）+ 计数刷新；不要为了一个已读标记
+  重新 `loadEntries`。后端会为 `read` / `read-all` / `star` / `read-later` /
+  `comments` / `full-content*` / `feed-icon*` 发出 `reads:data:changed`，
+  前端 `useBackendEvents` 对这批 reason **直接忽略**（它们已经由引发它们的 store 动作
+  在本地应用），只有影响列表成员或顺序的事件（`refresh`、`feed-added/removed/updated/
+  moved/view`、`category-*`、`reorder`、`opml-import`）才重新拉取第一页。
+- 原因：`loadEntries(true)` 会把列表重置成第一页并丢掉已经滚出来的分页；
+  打开文章（自动已读）、加载评论、抓全文都会发事件，若每次都重拉，
+  瀑布流会重新分栏、卡片整体位移。
+- 瀑布流卡片在模态窗打开期间用 `visibility: hidden` 保留占位（§7.11），
+  所以“卡片变成模态窗”也不会让相邻卡片移动。

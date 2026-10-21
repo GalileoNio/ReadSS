@@ -128,6 +128,8 @@ func main() {
 	}
 
 	svc := service.New(st, dataDir, version)
+	// Every launch refreshes once; the scheduler only runs on its interval.
+	svc.RefreshOnStartup = true
 	svc.SetLogger(logger)
 
 	// Serve hotlink-protected article images ourselves: a WebView cannot set

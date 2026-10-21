@@ -72,7 +72,27 @@ export function useBackendEvents() {
           Events.On('reads:refresh:done', () => {
             useApp.setState({ refreshing: false, progress: null });
           }),
-          Events.On('reads:data:changed', () => {
+          Events.On('reads:data:changed', (event: { data: unknown }) => {
+            const reason = (event.data as { reason?: string } | null)?.reason ?? '';
+            // These reasons do not change which entries the timeline holds or how
+            // they are ordered; the store already patched the affected flags
+            // locally. Re-fetching page one for them would rebuild the list (and
+            // can drop the pages the reader scrolled to), moving cards just
+            // because an article was read — read state must never move cards
+            // (DESIGN.md §7.13).
+            const localOnly =
+              reason === 'read' ||
+              reason === 'read-all' ||
+              reason === 'star' ||
+              reason === 'read-later' ||
+              reason === 'comments' ||
+              reason === 'full-content' ||
+              reason === 'full-content-cleared' ||
+              reason === 'feed-icon' ||
+              reason === 'feed-icons';
+            // Every one of those is already applied locally by the store action
+            // that caused it, so the event needs no follow-up at all.
+            if (localOnly) return;
             void (async () => {
               const { reloadSubscriptions, loadEntries } = useApp.getState();
               await reloadSubscriptions();

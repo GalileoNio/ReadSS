@@ -153,6 +153,12 @@ interface CardImageProps {
    * hand-off flicker.
    */
   instant?: boolean;
+  /**
+   * Fit the whole picture instead of cropping it to the box. The leftover bands
+   * are filled with a blurred, cover-cropped copy of the same picture — the
+   * detail hero's material (DESIGN.md §7.10).
+   */
+  contain?: boolean;
   className?: string;
 }
 
@@ -177,6 +183,7 @@ export function CardImage({
   title,
   hero = false,
   instant = false,
+  contain = false,
   className,
 }: CardImageProps) {
   const [loaded, setLoaded] = useState(instant);
@@ -184,8 +191,9 @@ export function CardImage({
 
   const url = proxiedImageURL(src || '', proxy, referer);
   const showImage = Boolean(url) && !failed;
-  // The feed's own colour wins: alpha tints keep the box readable on both
-  // themes. Only when the icon yields no colour do we fall back to the hash hue.
+  // The feed's own colour wins, always as a pale alpha tint: the saturated
+  // gradient is only used as a loading placeholder for cropped thumbnails. The
+  // contain hero never shows the brand colour behind its blurred fill.
   const tint = coverTint(seed, color);
   const placeholder = color
     ? `linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 62%, #000))`
@@ -196,7 +204,7 @@ export function CardImage({
       data-card-image={hero ? undefined : ''}
       data-hero-image={hero ? '' : undefined}
       style={
-        showImage
+        showImage && !contain
           ? { aspectRatio: ratio, backgroundImage: placeholder }
           : { aspectRatio: ratio, background: tint }
       }
@@ -210,24 +218,71 @@ export function CardImage({
             aria-hidden="true"
             className={cn(
               'absolute inset-0 scale-110 bg-cover bg-center blur-xl transition-opacity duration-300',
-              loaded ? 'opacity-0' : 'opacity-90',
+              contain ? 'opacity-0' : loaded ? 'opacity-0' : 'opacity-90',
             )}
             style={{ backgroundImage: placeholder }}
           />
-          <img
-            src={url}
-            alt={alt}
-            loading="lazy"
-            decoding="async"
-            draggable={false}
-            onLoad={() => setLoaded(true)}
-            onError={() => setFailed(true)}
-            className={cn(
-              'absolute inset-0 h-full w-full select-none object-cover',
-              instant ? '' : 'transition-[opacity,filter,transform] duration-500 ease-out',
-              loaded ? 'scale-100 opacity-100 blur-0' : 'scale-105 opacity-0 blur-lg',
-            )}
-          />
+          {contain ? (
+            <>
+              {/* The whole picture is shown (no cropping), so the bands left on
+                  either side are filled with the same picture, cover-cropped and
+                  blurred — the material the app already uses elsewhere. It is
+                  fully opaque and veiled in translucent white, so the bands read
+                  as a frosted picture instead of the feed's flat colour. */}
+              <img
+                src={url}
+                alt=""
+                aria-hidden="true"
+                loading="lazy"
+                decoding="async"
+                draggable={false}
+                className={cn(
+                  // Scaled well past the box: blur fades the picture's own
+                  // edges to transparent, and that fringe must be clipped away
+                  // or the tint behind it shows up as a coloured vignette.
+                  'absolute inset-0 h-full w-full scale-150 select-none object-cover blur-xl',
+                  instant ? '' : 'transition-opacity duration-500',
+                  loaded ? 'opacity-100' : 'opacity-0',
+                )}
+              />
+              {/* Same material as the floating capsule bar: the theme surface at
+                  70% plus a backdrop blur. It frosts the blurred picture instead
+                  of veiling it in plain white. */}
+              <span
+                aria-hidden="true"
+                className="absolute inset-0 bg-background/70 backdrop-blur-xl"
+              />
+              <img
+                src={url}
+                alt={alt}
+                loading="lazy"
+                decoding="async"
+                draggable={false}
+                onLoad={() => setLoaded(true)}
+                onError={() => setFailed(true)}
+                className={cn(
+                  'absolute inset-0 h-full w-full select-none object-contain',
+                  instant ? '' : 'transition-[opacity,filter,transform] duration-500 ease-out',
+                  loaded ? 'scale-100 opacity-100 blur-0' : 'scale-105 opacity-0 blur-lg',
+                )}
+              />
+            </>
+          ) : (
+            <img
+              src={url}
+              alt={alt}
+              loading="lazy"
+              decoding="async"
+              draggable={false}
+              onLoad={() => setLoaded(true)}
+              onError={() => setFailed(true)}
+              className={cn(
+                'absolute inset-0 h-full w-full select-none object-cover',
+                instant ? '' : 'transition-[opacity,filter,transform] duration-500 ease-out',
+                loaded ? 'scale-100 opacity-100 blur-0' : 'scale-105 opacity-0 blur-lg',
+              )}
+            />
+          )}
         </>
       ) : title ? (
         <CoverArt title={title} seed={seed} color={color} />

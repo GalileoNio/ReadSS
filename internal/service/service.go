@@ -59,6 +59,11 @@ type Service struct {
 
 	schedMu   sync.Mutex
 	schedStop context.CancelFunc
+
+	// RefreshOnStartup makes the service run one refresh pass shortly after
+	// startup. The GUI entry point sets it; headless callers (self-test, CLI)
+	// leave it off so they never hit the network by surprise.
+	RefreshOnStartup bool
 }
 
 // New creates the service.
@@ -97,8 +102,9 @@ func (s *Service) Attach(app *application.App) { s.app = app }
 // frontend/src/lib/api.ts must pass to Call.ByName.
 func (s *Service) ServiceName() string { return "ReadS" }
 
-// ServiceStartup is the Wails lifecycle hook: it records the app context and
-// starts the background refresh loop.
+// ServiceStartup is the Wails lifecycle hook: it records the app context,
+// starts the background refresh loop and, in the GUI, one refresh pass of its
+// own (see startStartupRefresh).
 func (s *Service) ServiceStartup(ctx context.Context, _ application.ServiceOptions) error {
 	if ctx == nil {
 		// Headless callers (self-test, future CLI) may not supply one.
@@ -107,7 +113,42 @@ func (s *Service) ServiceStartup(ctx context.Context, _ application.ServiceOptio
 	s.ctx, s.cancel = context.WithCancel(ctx)
 	s.backfillFeedColors()
 	s.startScheduler()
+	if s.RefreshOnStartup {
+		s.startStartupRefresh()
+	}
 	return nil
+}
+
+// startupRefreshDelay gives the window time to load its bundle and attach the
+// refresh listeners, so the startup pass shows its progress instead of running
+// invisibly before the UI exists.
+const startupRefreshDelay = 1500 * time.Millisecond
+
+// startStartupRefresh refreshes every subscription once per launch. The
+// interval scheduler would otherwise wait a whole cycle, leaving a freshly
+// opened app with whatever the last session fetched.
+func (s *Service) startStartupRefresh() {
+	go func() {
+		select {
+		case <-s.baseCtx().Done():
+			return
+		case <-time.After(startupRefreshDelay):
+		}
+
+		// Nothing subscribed yet: a pass would only emit an empty result.
+		feeds, err := s.store.Feeds()
+		if err != nil || len(feeds) == 0 {
+			return
+		}
+		// Not quiet: the UI shows the same progress as a manual refresh.
+		s.log.Info("startup refresh starting", "feeds", len(feeds))
+		result, err := s.refresh(nil, false)
+		if err != nil {
+			s.log.Warn("startup refresh failed", "err", err)
+			return
+		}
+		s.log.Info("startup refresh finished", "updated", result.Updated, "new", result.New, "failed", result.Failed)
+	}()
 }
 
 // ServiceShutdown stops the scheduler and closes the database.

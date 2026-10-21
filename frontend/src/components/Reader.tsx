@@ -235,6 +235,7 @@ export function Reader({ modal = false }: { modal?: boolean }) {
                 title={entry.title}
                 hero
                 instant
+                contain
                 className="w-full"
               />
             )}
