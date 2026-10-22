@@ -214,6 +214,15 @@ func (s *Service) runTranscript(ctx context.Context, m *transcriptManager, entry
 	defer os.RemoveAll(work)
 	res, err := transcribe.RunLocal(ctx, eng, audioURL, work, func(stage string, progress int) {
 		setJob(m, entryID, model.TranscriptRunning, stage, progress, "", nil)
+	}, func(cues []transcribe.Cue, language, engine string) {
+		// Publish the recognised lines while diarization is still running; the
+		// final save below replaces them with the speaker-labelled version.
+		speakers, segments := transcribe.Build(cues)
+		interim := &model.Transcript{
+			EntryID: entryID, Source: model.TranscriptFromLocal, Engine: engine,
+			Language: language, Speakers: speakers, Segments: segments, CreatedAt: time.Now().UnixMilli(),
+		}
+		setJob(m, entryID, model.TranscriptRunning, "区分说话人", 75, "", interim)
 	})
 	if ctx.Err() != nil {
 		setJob(m, entryID, model.TranscriptNone, "", 0, "", nil)

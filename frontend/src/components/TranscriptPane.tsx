@@ -40,6 +40,13 @@ function speakerName(transcript: Transcript, id: string) {
   return transcript.speakers.find((s) => s.id === id)?.name ?? '未区分';
 }
 
+function speakerAvatar(transcript: Transcript, id: string) {
+  const index = transcript.speakers.findIndex((s) => s.id === id);
+  if (index < 0) return '·';
+  const name = transcript.speakers[index].name;
+  return /^说话人\s*\d+$/.test(name) ? String(index + 1) : name.slice(0, 1);
+}
+
 export function TranscriptPane({ entry }: { entry: Entry }) {
   const job = useTranscript((s) => s.jobs[entry.id]);
   const load = useTranscript((s) => s.load);
@@ -100,29 +107,29 @@ export function TranscriptPane({ entry }: { entry: Entry }) {
     );
   }
 
-  if (job.status === 'queued' || job.status === 'running') {
-    return (
-      <div className="flex min-h-[360px] flex-col items-center justify-center px-8 py-10 text-center">
-        <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[#ff2442]/10 text-[#ff2442]">
-          <AudioLines size={25} />
-          <Loader2 size={62} className="absolute animate-spin opacity-35" strokeWidth={1.2} />
+  if (!transcript) {
+    if (job.status === 'queued' || job.status === 'running') {
+      return (
+        <div className="flex min-h-[360px] flex-col items-center justify-center px-8 py-10 text-center">
+          <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[#ff2442]/10 text-[#ff2442]">
+            <AudioLines size={25} />
+            <Loader2 size={62} className="absolute animate-spin opacity-35" strokeWidth={1.2} />
+          </div>
+          <h3 className="mt-4 text-[15px] font-semibold text-fg">{job.stage}</h3>
+          <p className="mt-1 text-footnote tabular-nums text-fg/40">{job.progress}% · 可以继续收听</p>
+          <div className="mt-4 h-1.5 w-52 overflow-hidden rounded-full bg-fill">
+            <div className="h-full rounded-full bg-[#ff2442] transition-[width] duration-500" style={{ width: `${job.progress}%` }} />
+          </div>
+          <p className="mt-4 max-w-[260px] text-footnote leading-relaxed text-fg/35">
+            语音识别完成后即可先阅读，随后自动区分演讲人并更新字幕。
+          </p>
+          <button type="button" onClick={() => void cancel(entry.id)} className="mt-4 inline-flex items-center gap-1.5 text-footnote text-fg/45 hover:text-fg/70">
+            <CircleStop size={13} />取消
+          </button>
         </div>
-        <h3 className="mt-4 text-[15px] font-semibold text-fg">{job.stage}</h3>
-        <p className="mt-1 text-footnote tabular-nums text-fg/40">{job.progress}% · 可以继续收听</p>
-        <div className="mt-4 h-1.5 w-52 overflow-hidden rounded-full bg-fill">
-          <div className="h-full rounded-full bg-[#ff2442] transition-[width] duration-500" style={{ width: `${job.progress}%` }} />
-        </div>
-        <p className="mt-4 max-w-[260px] text-footnote leading-relaxed text-fg/35">
-          首次本机识别会比较久，字幕完成后会保存在这台设备上。
-        </p>
-        <button type="button" onClick={() => void cancel(entry.id)} className="mt-4 inline-flex items-center gap-1.5 text-footnote text-fg/45 hover:text-fg/70">
-          <CircleStop size={13} />取消
-        </button>
-      </div>
-    );
-  }
+      );
+    }
 
-  if (job.status === 'error' || !transcript) {
     return (
       <div className="flex min-h-[360px] flex-col items-center justify-center px-8 py-10 text-center">
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-fill text-fg/40"><Cpu size={21} /></div>
@@ -159,6 +166,31 @@ export function TranscriptPane({ entry }: { entry: Entry }) {
       {setup && (
         <div className="flex justify-center border-b border-border bg-fill/25 px-5 py-4">
           <EngineSetup />
+        </div>
+      )}
+
+      {job.status === 'running' && (
+        <div className="border-b border-border bg-[#ff2442]/[0.04] px-5 py-2.5">
+          <div className="flex items-center gap-2">
+            <Loader2 size={12} className="shrink-0 animate-spin text-[#ff2442]" />
+            <span className="min-w-0 flex-1 truncate text-footnote text-fg/55">{job.stage} · 字幕已可先阅读</span>
+            <span className="text-[10px] tabular-nums text-fg/35">{job.progress}%</span>
+            <button type="button" onClick={() => void cancel(entry.id)} className="inline-flex shrink-0 items-center gap-1 text-[10px] text-fg/40 hover:text-fg/70">
+              <CircleStop size={11} />取消
+            </button>
+          </div>
+          <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-fill">
+            <div className="h-full rounded-full bg-[#ff2442] transition-[width] duration-500" style={{ width: `${job.progress}%` }} />
+          </div>
+        </div>
+      )}
+
+      {job.status === 'error' && (
+        <div className="flex items-center gap-2 border-b border-border bg-red-500/[0.05] px-5 py-2.5">
+          <span className="min-w-0 flex-1 truncate text-footnote text-red-600/80">{job.error || '说话人分离没有完成'}</span>
+          <button type="button" onClick={() => void generate(entry.id, true)} className="inline-flex shrink-0 items-center gap-1 text-[10px] font-medium text-red-600/80 hover:text-red-600">
+            <RefreshCw size={11} />重新分离
+          </button>
         </div>
       )}
 
@@ -213,7 +245,7 @@ export function TranscriptPane({ entry }: { entry: Entry }) {
               )}
             >
               <span className={cn('mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold', segment.speaker ? `${bg} ${fg}` : 'bg-fill text-fg/35')}>
-                {segment.speaker ? speakerName(transcript, segment.speaker).slice(0, 1) : '·'}
+                {speakerAvatar(transcript, segment.speaker)}
               </span>
               <span className="min-w-0 flex-1">
                 {showSpeaker && <span className={cn('mb-0.5 block text-footnote font-medium', fg)}>{speakerName(transcript, segment.speaker)}</span>}

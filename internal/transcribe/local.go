@@ -17,7 +17,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"reads/internal/model"
@@ -25,6 +24,10 @@ import (
 
 // Progress receives the current stage and an overall percentage.
 type Progress func(stage string, percent int)
+
+// Partial receives the recognised lines as soon as whisper finishes, before
+// speaker separation starts, so the reader can start reading earlier.
+type Partial func(cues []Cue, language, engine string)
 
 // Result is a locally recognised transcript.
 type Result struct {
@@ -41,7 +44,7 @@ const maxAudioBytes = 2 << 30
 //
 // Diarization failing does not fail the job: subtitles without speakers are
 // still useful, and the engine label records what happened.
-func RunLocal(ctx context.Context, eng model.TranscribeEngine, audioURL, workDir string, report Progress) (*Result, error) {
+func RunLocal(ctx context.Context, eng model.TranscribeEngine, audioURL, workDir string, report Progress, partial Partial) (*Result, error) {
 	if !eng.Ready {
 		return nil, fmt.Errorf("本机识别引擎未就绪，缺少：%s", strings.Join(eng.Missing, "、"))
 	}
@@ -80,11 +83,19 @@ func RunLocal(ctx context.Context, eng model.TranscribeEngine, audioURL, workDir
 	if len(cues) == 0 {
 		return nil, errors.New("没有识别出任何语音")
 	}
+	cues = cleanCues(cues)
 
 	engine := "whisper.cpp · " + strings.TrimSuffix(filepath.Base(cfg.WhisperModel), filepath.Ext(cfg.WhisperModel))
 	if eng.CanDiarize {
 		report("区分说话人", asrEnd)
-		turns, err := diarize(ctx, cfg, wav, func(p int) {
+		if partial != nil {
+			partial(cues, lang, engine)
+		}
+		// sherpa's segmentation and embedding sessions default to one thread
+		// each. On a long episode that made diarization slower than the
+		// recognition pass, so give it several threads and leave one core for
+		// the UI.
+		turns, err := diarize(ctx, cfg, wav, diarizationThreads(runtime.NumCPU()), func(p int) {
 			report("区分说话人", asrEnd+p*(97-asrEnd)/100)
 		})
 		switch {
@@ -103,7 +114,22 @@ func RunLocal(ctx context.Context, eng model.TranscribeEngine, audioURL, workDir
 	}
 
 	report("整理字幕", 98)
-	return &Result{Cues: cleanCues(cues), Language: lang, Engine: engine}, nil
+	return &Result{Cues: cues, Language: lang, Engine: engine}, nil
+}
+
+// diarizationThreads gives the speech segmentation and embedding models room
+// to scale. Both default to a single thread, which made diarization the slowest
+// stage of a long episode. One core is left for the UI, and the cap keeps ONNX
+// Runtime's per-session pools from oversubscribing many-core machines.
+func diarizationThreads(cpus int) int {
+	if cpus < 2 {
+		return 1
+	}
+	threads := cpus - 1
+	if threads > 8 {
+		threads = 8
+	}
+	return threads
 }
 
 /* -------------------------------------------------------------- download */
@@ -237,10 +263,12 @@ type turn struct {
 
 var turnRe = regexp.MustCompile(`(\d+(?:\.\d+)?)\s*--\s*(\d+(?:\.\d+)?)\s+(speaker_\d+)`)
 
-func diarize(ctx context.Context, cfg model.TranscribeConfig, wav string, progress func(int)) ([]turn, error) {
+func diarize(ctx context.Context, cfg model.TranscribeConfig, wav string, threads int, progress func(int)) ([]turn, error) {
 	args := []string{
 		"--segmentation.pyannote-model=" + cfg.SegmentationModel,
+		"--segmentation.num-threads=" + strconv.Itoa(threads),
 		"--embedding.model=" + cfg.EmbeddingModel,
+		"--embedding.num-threads=" + strconv.Itoa(threads),
 	}
 	if cfg.Speakers > 0 {
 		args = append(args, "--clustering.num-clusters="+strconv.Itoa(cfg.Speakers))

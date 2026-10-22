@@ -46,7 +46,8 @@ type Transcript struct {
 }
 
 // TranscriptJob is what the frontend polls: the stored transcript once done,
-// or the progress of the job producing it.
+// or the progress of the job producing it. While local diarization runs,
+// Transcript already holds the recognised lines without speaker labels.
 type TranscriptJob struct {
 	EntryID    int64       `json:"entryId"`
 	Status     string      `json:"status"`
