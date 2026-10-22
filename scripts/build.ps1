@@ -1,10 +1,12 @@
 # Builds ReadS. Kept as a script so the build is reproducible and so the
 # frontend is always rebuilt into frontend/dist before Go embeds it.
 #
-#   pwsh -File scripts/build.ps1            # release build
-#   pwsh -File scripts/build.ps1 -SkipWeb   # Go only (frontend/dist already built)
+#   pwsh -File scripts/build.ps1                  # release build
+#   pwsh -File scripts/build.ps1 -SkipWeb         # Go only (frontend/dist already built)
+#   pwsh -File scripts/build.ps1 -SkipASR         # skip preparing the bundled transcription runtime
 param(
     [switch]$SkipWeb,
+    [switch]$SkipASR,
     [string]$Output = 'build\bin\ReadS.exe'
 )
 
@@ -39,9 +41,10 @@ function Invoke-Native {
     }
 }
 
+. "$PSScriptRoot\pnpmenv.ps1"
+
 if (-not $SkipWeb) {
     Write-Host '--- building frontend ---'
-    . "$PSScriptRoot\pnpmenv.ps1"
     Push-Location "$root\frontend"
     try {
         Invoke-Native { pnpm run build } 'frontend build'
@@ -87,6 +90,12 @@ Invoke-Native { go build -trimpath -ldflags '-s -w -H windowsgui' -o $Output . }
 # terminal, where the GUI binary cannot write to stdout.
 $cliOutput = Join-Path (Split-Path -Parent $Output) 'ReadS-cli.exe'
 Invoke-Native { go build -trimpath -ldflags '-s -w' -o $cliOutput . } 'go build (cli)'
+
+if (-not $SkipASR) {
+    Write-Host '--- preparing local transcription runtime ---'
+    $asrTarget = Join-Path (Split-Path -Parent $Output) 'asr'
+    & "$PSScriptRoot\prepare-asr.ps1" -Target $asrTarget
+}
 
 $exe = Get-Item $Output
 Write-Host ("built {0} ({1:N1} MiB)" -f $exe.FullName, ($exe.Length / 1MB))

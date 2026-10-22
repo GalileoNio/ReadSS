@@ -20,7 +20,7 @@ import { cn, formatClock, formatDate, hostOf } from '../lib/utils';
 import { CommentsPane } from './CommentsPane';
 import { Reader } from './Reader';
 import { TranscriptPane } from './TranscriptPane';
-import { CoverArt, coverTint, FeedIcon, proxiedImageURL, Spinner } from './primitives';
+import { CARD_IMAGE_RADIUS, CoverArt, coverTint, FeedIcon, proxiedImageURL, Spinner } from './primitives';
 
 /** Images fly a little slower than the panel: the picture is the subject. */
 const IMAGE_FLIGHT = 420;
@@ -251,8 +251,6 @@ export function ArticleModal() {
 
     hero.style.opacity = '0';
 
-    const radiusRaw = parseFloat(getComputedStyle(hero).borderTopLeftRadius);
-    const radius = Number.isFinite(radiusRaw) ? radiusRaw : 12;
     const ease = 'cubic-bezier(0.22, 0.8, 0.24, 1)';
 
     let landed = false;
@@ -309,7 +307,7 @@ export function ArticleModal() {
       ghostEl.style.top = `${from.y}px`;
       ghostEl.style.width = `${from.width}px`;
       ghostEl.style.height = `${from.height}px`;
-      ghostEl.style.borderRadius = '8px';
+      ghostEl.style.borderRadius = `${CARD_IMAGE_RADIUS}px`;
       ghostEl.style.opacity = '1';
       void ghostEl.offsetWidth;
 
@@ -326,7 +324,7 @@ export function ArticleModal() {
       ghostEl.style.top = `${target.y}px`;
       ghostEl.style.width = `${target.width}px`;
       ghostEl.style.height = `${target.height}px`;
-      ghostEl.style.borderRadius = `${radius}px`;
+      ghostEl.style.borderRadius = `${CARD_IMAGE_RADIUS}px`;
 
       ghostEl.addEventListener('transitionend', land, { once: true });
       // A transition that never finishes (tab hidden, image swap) must land.
@@ -408,7 +406,7 @@ export function ArticleModal() {
       ghostEl.style.top = `${from.y}px`;
       ghostEl.style.width = `${from.width}px`;
       ghostEl.style.height = `${from.height}px`;
-      ghostEl.style.borderRadius = '0px';
+      ghostEl.style.borderRadius = `${CARD_IMAGE_RADIUS}px`;
       ghostEl.style.opacity = '1';
       // Fade the hero out instead of hiding it in one frame: its blurred bands
       // would otherwise disappear abruptly at the very start of the exit.
@@ -433,7 +431,7 @@ export function ArticleModal() {
       ghostEl.style.top = `${to.y}px`;
       ghostEl.style.width = `${to.width}px`;
       ghostEl.style.height = `${to.height}px`;
-      ghostEl.style.borderRadius = '8px';
+      ghostEl.style.borderRadius = `${CARD_IMAGE_RADIUS}px`;
       imageMs = IMAGE_RETURN;
     }
 
@@ -537,7 +535,7 @@ export function ArticleModal() {
             top: ghost.y,
             width: ghost.w,
             height: ghost.h,
-            borderRadius: 8,
+            borderRadius: CARD_IMAGE_RADIUS,
             ...(ghost.kind === 'image'
               ? {
                   backgroundImage: `url("${ghost.url}")`,
@@ -562,11 +560,12 @@ export function ArticleModal() {
       <div
         ref={dialogRef}
         data-modal-panel=""
+        style={{ borderRadius: CARD_IMAGE_RADIUS }}
         className={cn(
           'relative z-10 flex h-[min(92vh,920px)] w-[min(1200px,calc(100vw-144px))] flex-col overflow-hidden',
-          'rounded-[20px] bg-background shadow-modal dark:border dark:border-border',
+          'bg-background shadow-modal dark:border dark:border-border',
           plainOpen.current ? 'animate-scale-in' : '',
-          isCompact && 'h-full w-full rounded-none dark:border-0',
+          isCompact && 'h-full w-full dark:border-0',
         )}
       >
         {isCompact && (
@@ -791,7 +790,7 @@ function AuthorBarLoaded({ entry }: { entry: EntryDetail }) {
           className="!rounded-full ring-1 ring-border"
         />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-headline font-medium text-fg/85 transition-colors group-enabled:group-hover:text-fg">
+          <span className="block truncate text-headline font-medium text-fg/85 transition-colors group-hover:text-fg">
             {entry.feedTitle}
           </span>
           <span className="mt-0.5 block truncate text-footnote text-fg/40">

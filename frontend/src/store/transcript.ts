@@ -1,10 +1,19 @@
 import { create } from 'zustand';
 import * as api from '../lib/transcriptApi';
-import type { TranscribeConfig, TranscribeEngine, Transcript, TranscriptJob } from '../lib/transcriptApi';
+import type {
+  TranscribeConfig,
+  TranscribeEngine,
+  Transcript,
+  TranscriptJob,
+  WhisperModel,
+  WhisperModelDownload,
+} from '../lib/transcriptApi';
 
 interface TranscriptState {
   jobs: Record<number, TranscriptJob | undefined>;
   engine: TranscribeEngine | null;
+  models: WhisperModel[];
+  modelDownload: WhisperModelDownload | null;
   loadingEngine: boolean;
   load: (entryId: number) => Promise<void>;
   generate: (entryId: number, forceLocal?: boolean) => Promise<void>;
@@ -12,9 +21,14 @@ interface TranscriptState {
   renameSpeaker: (entryId: number, speakerId: string, name: string) => Promise<void>;
   loadEngine: () => Promise<void>;
   saveEngine: (config: TranscribeConfig) => Promise<void>;
+  loadModels: () => Promise<void>;
+  downloadModel: (modelId: string) => Promise<void>;
+  cancelModelDownload: () => Promise<void>;
+  selectModel: (modelId: string) => Promise<void>;
 }
 
 const pollers = new Map<number, number>();
+let modelPoller: number | null = null;
 
 function active(job?: TranscriptJob) {
   return job?.status === 'queued' || job?.status === 'running';
@@ -30,9 +44,34 @@ function schedulePoll(entryId: number) {
   pollers.set(entryId, timer);
 }
 
+function scheduleModelPoll() {
+  if (modelPoller !== null) return;
+  modelPoller = window.setTimeout(async () => {
+    modelPoller = null;
+    try {
+      const download = await api.getWhisperModelDownload();
+      useTranscript.setState({ modelDownload: download });
+      if (download.status === 'running') {
+        scheduleModelPoll();
+      } else if (download.status === 'done') {
+        await Promise.all([
+          useTranscript.getState().loadModels(),
+          useTranscript.getState().loadEngine(),
+        ]);
+      }
+    } catch (error) {
+      useTranscript.setState({
+        modelDownload: { modelId: '', status: 'error', progress: 0, downloaded: 0, total: 0, error: String(error) },
+      });
+    }
+  }, 700);
+}
+
 export const useTranscript = create<TranscriptState>((set, get) => ({
   jobs: {},
   engine: null,
+  models: [],
+  modelDownload: null,
   loadingEngine: false,
 
   async load(entryId) {
@@ -92,6 +131,52 @@ export const useTranscript = create<TranscriptState>((set, get) => ({
     set({ loadingEngine: true });
     try {
       set({ engine: await api.saveTranscribeConfig(config) });
+      await get().loadModels();
+    } finally {
+      set({ loadingEngine: false });
+    }
+  },
+
+  async loadModels() {
+    try {
+      const [models, download] = await Promise.all([
+        api.getWhisperModels(),
+        api.getWhisperModelDownload(),
+      ]);
+      set({ models, modelDownload: download });
+      if (download.status === 'running') scheduleModelPoll();
+    } catch (error) {
+      set({
+        modelDownload: { modelId: '', status: 'error', progress: 0, downloaded: 0, total: 0, error: String(error) },
+      });
+    }
+  },
+
+  async downloadModel(modelId) {
+    try {
+      const download = await api.downloadWhisperModel(modelId);
+      set({ modelDownload: download });
+      if (download.status === 'running') scheduleModelPoll();
+      else await Promise.all([get().loadModels(), get().loadEngine()]);
+    } catch (error) {
+      set({
+        modelDownload: { modelId, status: 'error', progress: 0, downloaded: 0, total: 0, error: String(error) },
+      });
+    }
+  },
+
+  async cancelModelDownload() {
+    await api.cancelWhisperModelDownload();
+    if (modelPoller !== null) window.clearTimeout(modelPoller);
+    modelPoller = null;
+    set({ modelDownload: { modelId: '', status: 'idle', progress: 0, downloaded: 0, total: 0, error: '' } });
+  },
+
+  async selectModel(modelId) {
+    set({ loadingEngine: true });
+    try {
+      set({ engine: await api.selectWhisperModel(modelId) });
+      await get().loadModels();
     } finally {
       set({ loadingEngine: false });
     }

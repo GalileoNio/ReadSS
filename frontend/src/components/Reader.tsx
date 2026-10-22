@@ -233,11 +233,7 @@ export function Reader({ modal = false }: { modal?: boolean }) {
               playerActive ? 'pb-28' : 'pb-10',
             )}
           >
-            {/* In the modal the hero is full-bleed: no top, left or right margin
-                and no rounded corners, so it reads as the note's cover rather
-                than an inline picture. The floating toolbar sits over it.
-                Without a picture the same box shows the drawn cover — it is
-                treated as the article's image (DESIGN.md §7.11). */}
+            {/* The full-bleed cover shares the card's rounding for the flight hand-off. */}
             {modal && (
               <CardImage
                 src={entry.imageUrl}

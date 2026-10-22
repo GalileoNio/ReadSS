@@ -8,12 +8,12 @@
 // directly, and invisible to a case-insensitive search.
 //
 //   node scripts/check-bindings.mjs
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
-const SERVICE_GO = path.join(ROOT, 'internal', 'service', 'service.go');
-const API_TS = path.join(ROOT, 'frontend', 'src', 'lib', 'api.ts');
+const SERVICE_DIR = path.join(ROOT, 'internal', 'service');
+const API_DIR = path.join(ROOT, 'frontend', 'src', 'lib');
 
 /** Exported methods on *Service, matched case-sensitively. */
 function goMethods(source) {
@@ -31,9 +31,15 @@ function jsCalls(source) {
   return names;
 }
 
+async function readSources(directory, include) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = entries.filter((entry) => entry.isFile() && include(entry.name)).map((entry) => entry.name).sort();
+  return (await Promise.all(files.map((file) => readFile(path.join(directory, file), 'utf8')))).join('\n');
+}
+
 const [goSource, tsSource] = await Promise.all([
-  readFile(SERVICE_GO, 'utf8'),
-  readFile(API_TS, 'utf8'),
+  readSources(SERVICE_DIR, (name) => name.endsWith('.go') && !name.endsWith('_test.go')),
+  readSources(API_DIR, (name) => name === 'api.ts' || name.endsWith('Api.ts')),
 ]);
 
 const go = goMethods(goSource);

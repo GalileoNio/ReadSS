@@ -6,6 +6,7 @@ import {
   ChevronUp,
   CircleStop,
   Cpu,
+  Download,
   Loader2,
   Pencil,
   Play,
@@ -150,7 +151,16 @@ export function TranscriptPane({ entry }: { entry: Entry }) {
         <button type="button" title="重新生成本机字幕" onClick={() => void generate(entry.id, true)} className="icon-btn !h-7 !w-7 text-fg/35 hover:text-fg/65">
           <RefreshCw size={13} />
         </button>
+        <button type="button" title="本机识别设置" onClick={() => setSetup((v) => !v)} className={cn('icon-btn !h-7 !w-7', setup ? 'text-[#ff2442]' : 'text-fg/35 hover:text-fg/65')}>
+          <Settings2 size={13} />
+        </button>
       </div>
+
+      {setup && (
+        <div className="flex justify-center border-b border-border bg-fill/25 px-5 py-4">
+          <EngineSetup />
+        </div>
+      )}
 
       {transcript.speakers.length > 0 && (
         <div className="flex flex-wrap gap-2 border-b border-border px-5 py-3">
@@ -245,13 +255,19 @@ export function PlayerCaption({ entry }: { entry: Entry }) {
 
 function EngineSetup() {
   const engine = useTranscript((s) => s.engine);
+  const models = useTranscript((s) => s.models);
+  const modelDownload = useTranscript((s) => s.modelDownload);
   const loading = useTranscript((s) => s.loadingEngine);
   const loadEngine = useTranscript((s) => s.loadEngine);
+  const loadModels = useTranscript((s) => s.loadModels);
   const saveEngine = useTranscript((s) => s.saveEngine);
+  const downloadModel = useTranscript((s) => s.downloadModel);
+  const cancelModelDownload = useTranscript((s) => s.cancelModelDownload);
+  const selectModel = useTranscript((s) => s.selectModel);
   const [advanced, setAdvanced] = useState(false);
   const [draft, setDraft] = useState<TranscribeConfig | null>(null);
 
-  useEffect(() => { void loadEngine(); }, [loadEngine]);
+  useEffect(() => { void Promise.all([loadEngine(), loadModels()]); }, [loadEngine, loadModels]);
   useEffect(() => { if (engine) setDraft(engine.config); }, [engine]);
 
   if (!engine || !draft) return <Loader2 size={17} className="mt-5 animate-spin text-fg/30" />;
@@ -283,6 +299,52 @@ function EngineSetup() {
           {engine.canDiarize ? '说话人分离已就绪' : '说话人分离未配置'}
         </span>
       </div>
+
+      <div className="mt-4 border-t border-border pt-3">
+        <div className="flex items-end justify-between">
+          <p className="text-footnote font-medium text-fg/70">识别模型</p>
+          <span className="text-[10px] text-fg/30">越大越准，也越慢</span>
+        </div>
+        <div className="mt-2 space-y-2">
+          {models.map((model) => {
+            const downloading = modelDownload?.status === 'running' && modelDownload.modelId === model.id;
+            const blocked = modelDownload?.status === 'running' && !downloading;
+            const failed = modelDownload?.status === 'error' && modelDownload.modelId === model.id;
+            return (
+              <div key={model.id} className={cn('rounded-xl border px-3 py-2.5', model.active ? 'border-[#ff2442]/25 bg-[#ff2442]/[0.035]' : 'border-border bg-background/55')}>
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-medium text-fg/75">{model.name}</span>
+                      <span className="text-[9px] text-fg/30">{Math.round(model.size / 1024 / 1024)} MB</span>
+                    </div>
+                    <p className="mt-0.5 text-[10px] text-fg/35">{model.description}</p>
+                  </div>
+                  {model.active ? (
+                    <span className="inline-flex h-7 items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 text-[10px] font-medium text-emerald-600"><Check size={11} />使用中</span>
+                  ) : model.installed ? (
+                    <button type="button" disabled={loading || blocked} onClick={() => void selectModel(model.id)} className="h-7 rounded-full bg-fill px-2.5 text-[10px] font-medium text-fg/60 disabled:opacity-40">使用</button>
+                  ) : downloading ? (
+                    <button type="button" onClick={() => void cancelModelDownload()} className="inline-flex h-7 items-center gap-1 rounded-full bg-fill px-2.5 text-[10px] text-fg/55"><CircleStop size={11} />取消</button>
+                  ) : (
+                    <button type="button" disabled={blocked} onClick={() => void downloadModel(model.id)} className="inline-flex h-7 items-center gap-1 rounded-full bg-[#ff2442] px-2.5 text-[10px] font-medium text-white disabled:opacity-40"><Download size={11} />下载</button>
+                  )}
+                </div>
+                {downloading && (
+                  <div className="mt-2">
+                    <div className="h-1 overflow-hidden rounded-full bg-fill">
+                      <div className="h-full rounded-full bg-[#ff2442] transition-[width]" style={{ width: `${modelDownload?.progress ?? 0}%` }} />
+                    </div>
+                    <p className="mt-1 text-right text-[9px] tabular-nums text-fg/30">{modelDownload?.progress ?? 0}%</p>
+                  </div>
+                )}
+                {failed && <p className="mt-1.5 break-words text-[9px] leading-relaxed text-red-500/80">{modelDownload?.error}</p>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       <button type="button" onClick={() => setAdvanced((v) => !v)} className="mt-3 flex w-full items-center justify-between text-footnote text-fg/50">
         手动指定路径 {advanced ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
       </button>

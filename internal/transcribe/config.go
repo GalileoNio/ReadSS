@@ -56,11 +56,11 @@ func withDefaults(cfg model.TranscribeConfig) model.TranscribeConfig {
 }
 
 // Detect resolves every tool and model: an explicit path wins when it exists,
-// otherwise the engine folder is searched, and programs fall back to PATH.
+// otherwise the bundled and user engine folders are searched before PATH.
 func Detect(dataDir string, cfg model.TranscribeConfig) model.TranscribeEngine {
 	dir := Dir(dataDir)
 	_ = os.MkdirAll(dir, 0o755)
-	found := scan(dir)
+	found := scanRoots(bundledDir(), dir)
 
 	res := cfg
 	res.FFmpeg = pick(cfg.FFmpeg, found.ffmpeg, exe("ffmpeg"))
@@ -94,6 +94,56 @@ type scanResult struct {
 	ffmpeg, whisper, diarizer string
 	whisperModels             []string
 	segmentation, embedding   []string
+}
+
+func bundledDir() string {
+	executable, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(filepath.Dir(executable), "asr")
+}
+
+func scanRoots(roots ...string) scanResult {
+	var result scanResult
+	seen := make(map[string]bool, len(roots))
+	for _, root := range roots {
+		if root == "" {
+			continue
+		}
+		key, err := filepath.Abs(root)
+		if err != nil {
+			key = filepath.Clean(root)
+		}
+		if runtime.GOOS == "windows" {
+			key = strings.ToLower(key)
+		}
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+
+		found := scan(root)
+		if result.ffmpeg == "" {
+			result.ffmpeg = found.ffmpeg
+		}
+		if result.whisper == "" {
+			result.whisper = found.whisper
+		}
+		if result.diarizer == "" {
+			result.diarizer = found.diarizer
+		}
+		if len(result.whisperModels) == 0 {
+			result.whisperModels = found.whisperModels
+		}
+		if len(result.segmentation) == 0 {
+			result.segmentation = found.segmentation
+		}
+		if len(result.embedding) == 0 {
+			result.embedding = found.embedding
+		}
+	}
+	return result
 }
 
 func scan(root string) scanResult {
@@ -179,7 +229,6 @@ func pick(explicit, found, onPath string) string {
 		if p, err := exec.LookPath(explicit); err == nil {
 			return p
 		}
-		return ""
 	}
 	if found != "" {
 		return found

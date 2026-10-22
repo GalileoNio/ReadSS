@@ -115,6 +115,8 @@ export function proxiedImageURL(src: string, proxy = '', referer?: string): stri
 
 /* -------------------------------------------------------------- CardImage */
 
+export const CARD_IMAGE_RADIUS = 8;
+
 interface CardImageProps {
   /** Absolute image URL, or '' when the entry has no picture. */
   src?: string;
@@ -162,15 +164,7 @@ interface CardImageProps {
   className?: string;
 }
 
-/**
- * A card's picture area: fixed box, blurred colour placeholder, then the picture
- * fades in from blurred to sharp.
- *
- * The box exists before the image does, which is what keeps a waterfall wall
- * still while thirty thumbnails load one by one. The placeholder borrows the
- * feed's deterministic gradient (avatarGradient), so it is stable across
- * renders and recognisable as that source.
- */
+/** A fixed picture box with a pale feed tint while its image loads. */
 export function CardImage({
   src,
   alt = '',
@@ -188,40 +182,22 @@ export function CardImage({
 }: CardImageProps) {
   const [loaded, setLoaded] = useState(instant);
   const [failed, setFailed] = useState(false);
+  const [pictureShape, setPictureShape] = useState<{ url: string; wide: boolean } | null>(null);
 
   const url = proxiedImageURL(src || '', proxy, referer);
   const showImage = Boolean(url) && !failed;
-  // The feed's own colour wins, always as a pale alpha tint: the saturated
-  // gradient is only used as a loading placeholder for cropped thumbnails. The
-  // contain hero never shows the brand colour behind its blurred fill.
+  const shaped = pictureShape?.url === url ? pictureShape : null;
   const tint = coverTint(seed, color);
-  const placeholder = color
-    ? `linear-gradient(135deg, ${color}, color-mix(in srgb, ${color} 62%, #000))`
-    : avatarGradient(seed || '?');
 
   return (
     <div
       data-card-image={hero ? undefined : ''}
       data-hero-image={hero ? '' : undefined}
-      style={
-        showImage && !contain
-          ? { aspectRatio: ratio, backgroundImage: placeholder }
-          : { aspectRatio: ratio, background: tint }
-      }
+      style={{ aspectRatio: ratio, background: tint, borderRadius: CARD_IMAGE_RADIUS }}
       className={cn('relative w-full select-none overflow-hidden bg-cover bg-center', className)}
     >
       {showImage ? (
         <>
-          {/* Blurred stand-in: the gradient, scaled up and softened so it reads
-              as a blurred picture rather than a flat block. */}
-          <div
-            aria-hidden="true"
-            className={cn(
-              'absolute inset-0 scale-110 bg-cover bg-center blur-xl transition-opacity duration-300',
-              contain ? 'opacity-0' : loaded ? 'opacity-0' : 'opacity-90',
-            )}
-            style={{ backgroundImage: placeholder }}
-          />
           {contain ? (
             <>
               {/* The whole picture is shown (no cropping), so the bands left on
@@ -258,10 +234,22 @@ export function CardImage({
                 loading="lazy"
                 decoding="async"
                 draggable={false}
-                onLoad={() => setLoaded(true)}
+                onLoad={(event) => {
+                  const img = event.currentTarget;
+                  const box = img.parentElement!;
+                  setPictureShape({
+                    url,
+                    wide: img.naturalWidth * box.clientHeight >= img.naturalHeight * box.clientWidth,
+                  });
+                  setLoaded(true);
+                }}
                 onError={() => setFailed(true)}
+                style={{
+                  width: shaped && !shaped.wide ? 'auto' : '100%',
+                  height: shaped && shaped.wide ? 'auto' : '100%',
+                }}
                 className={cn(
-                  'absolute inset-0 h-full w-full select-none object-contain',
+                  'absolute inset-0 m-auto max-h-full max-w-full select-none rounded-[inherit] object-contain',
                   instant ? '' : 'transition-[opacity,filter,transform] duration-500 ease-out',
                   loaded ? 'scale-100 opacity-100 blur-0' : 'scale-105 opacity-0 blur-lg',
                 )}

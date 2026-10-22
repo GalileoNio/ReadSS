@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ReadSS — RSS 的新时代</title>
+  <meta name="description" content="ReadSS 是一个把订阅、长文、播客与评论放回同一张桌面的 RSS 阅读器。让信息重新排队，让阅读回到自己。">
+  <meta name="theme-color" content="#f4efe8">
+  <meta property="og:title" content="ReadSS — RSS 的新时代">
+  <meta property="og:description" content="让信息重新排队，让阅读回到自己。一个安静、主动、本地优先的 RSS 阅读器概念。">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="assets/readss-icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body id="top">
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="ReadSS 首页">
+      <img src="assets/readss-icon.svg" width="34" height="34" alt="">
+      <span class="brand__word">ReadSS</span>
+    </a>
+
+    <nav class="site-nav" aria-label="页面导航">
+      <a href="#brand">主张</a>
+      <a href="#value">价值</a>
+      <a href="#device">设备</a>
+      <a href="#story">故事</a>
+      <a href="#product">产品</a>
+      <a class="site-nav__cta" href="#experience">体验</a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="masthead" aria-labelledby="page-title">
+      <div class="masthead__main">
+        <p class="eyebrow"><span class="eyebrow__rule" aria-hidden="true"></span>RSS, REIMAGINED</p>
+        <h1 id="page-title">让信息重新排队，<br><span>让阅读回到自己。</span></h1>
+      </div>
+      <div class="masthead__aside">
+        <p>ReadSS 是一个把订阅、长文、播客与评论放回同一张桌面的 RSS 阅读器。没有算法替你挑，只有你亲手留下的信息。</p>
+        <p class="meta-line"><span>产品概念预览</span><span aria-hidden="true">/</span><span>界面内为演示数据</span></p>
+      </div>
+    </section>
+
+    <section class="card-grid" aria-label="ReadSS 的六个侧面">
+      <article class="card card--brand" id="brand" aria-labelledby="brand-title">
+        <div class="card__head">
+          <span class="card__index">01</span>
+          <span class="card__label">品牌主张</span>
+        </div>
+        <div class="card__body">
+          <h2 id="brand-title">别让算法，<br>替你决定<span>下一篇。</span></h2>
+          <p>RSS 没有过时。它只是需要一间更安静的房间。ReadSS 把订阅放回桌面，把选择权放回你手里。</p>
+        </div>
+        <figure class="brand__visual">
+          <img src="assets/brand-3d.jpg" width="900" height="1125" alt="粉色与奶油色背景中漂浮的纸张、半透明弧线和一颗橙色小球，象征安静而有秩序的阅读。">
+          <figcaption>概念视觉 · 非产品界面</figcaption>
+        </figure>
+        <span class="card__cta" aria-hidden="true">读我们的主张
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 14 14 6M8 6h6v6"/></svg>
+        </span>
+        <button class="card__hit" type="button" data-open="brand" aria-haspopup="dialog" aria-label="展开品牌主张详情"></button>
+      </article>
+
+      <article class="card card--value" id="value" aria-labelledby="value-title">
+        <div class="card__head">
+          <span class="card__index">02</span>
+          <span class="card__label">服务价值</span>
+        </div>
+        <div class="card__body">
+          <h2 id="value-title">为注意力，留一块<br><span>不被打扰的地方。</span></h2>
+          <p>不是让你读得更多，而是让值得读的内容更容易抵达。</p>
+        </div>
+        <ul class="value-list" aria-label="ReadSS 的核心价值">
+          <li>
+            <span class="value-list__number">01</span>
+            <div><h3>主动订阅</h3><p>只留下你真正想读的来源，时间线按你的选择发生。</p></div>
+          </li>
+          <li>
+            <span class="value-list__number">02</span>
+            <div><h3>无算法投喂</h3><p>不靠停留时长与情绪标签编排，让顺序保持清楚。</p></div>
+          </li>
+          <li>
+            <span class="value-list__number">03</span>
+            <div><h3>一处读完</h3><p>文章、图片、视频与播客，各自归档又彼此相邻。</p></div>
+          </li>
+          <li>
+            <span class="value-list__number">04</span>
+            <div><h3>本地优先</h3><p>订阅、已读与播放进度留在本机。没有账号墙，也没有遥测。</p></div>
+          </li>
+        </ul>
+        <span class="card__cta" aria-hidden="true">看看 ReadSS 的价值
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 14 14 6M8 6h6v6"/></svg>
+        </span>
+        <button class="card__hit" type="button" data-open="value" aria-haspopup="dialog" aria-label="展开服务价值详情"></button>
+      </article>
+
+      <article class="card card--device" id="device" aria-labelledby="device-title">
+        <div class="card__head">
+          <span class="card__index">03</span>
+          <span class="card__label">设备</span>
+        </div>
+        <div class="card__body">
+          <h2 id="device-title">桌面上的深度，<br><span>窗口里的从容。</span></h2>
+          <p>桌面优先的阅读空间。窗口收窄，内容仍然稳稳地待在自己的位置。</p>
+        </div>
+        <div class="device-stage">
+          <figure class="device-laptop">
+            <div class="device-laptop__screen">
+              <img src="assets/app-desktop.png" width="1512" height="950" loading="lazy" alt="ReadSS 桌面界面：左侧是订阅与文章列表，右侧是文章正文。">
+            </div>
+            <div class="device-laptop__base" aria-hidden="true"></div>
+            <figcaption>桌面端 · 开发中界面</figcaption>
+          </figure>
+          <figure class="device-phone">
+            <div class="device-phone__screen">
+              <img src="assets/app-narrow.png" width="390" height="844" loading="lazy" alt="ReadSS 窄窗界面中的文章列表。">
+            </div>
+            <figcaption>窄窗模式</figcaption>
+          </figure>
+          <p class="demo-stamp">产品截图 · 内容为演示数据</p>
+        </div>
+        <span class="card__cta" aria-hidden="true">看看它在设备上的样子
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 14 14 6M8 6h6v6"/></svg>
+        </span>
+        <button class="card__hit" type="button" data-open="device" aria-haspopup="dialog" aria-label="展开设备详情"></button>
+      </article>
+
+      <article class="card card--story" id="story" aria-labelledby="story-title">
+        <div class="card__head">
+          <span class="card__index">04</span>
+          <span class="card__label">视觉故事</span>
+        </div>
+        <div class="card__body">
+          <h2 id="story-title">每一条订阅，<br>都有自己的<span>颜色。</span></h2>
+          <p>色彩从来源中生长出来，让时间线有迹可循，也让每一次停留都更像一段完整的故事。</p>
+        </div>
+        <figure class="story-visual">
+          <img src="assets/story-3d.jpg" width="900" height="1125" loading="lazy" alt="粉色、淡紫与浅绿三张抽象编辑卡片漂浮在奶油色空间中，点缀橙色 RSS 弧线与纸带。">
+          <figcaption><span>订阅源主题色</span><span>瀑布流</span><span>展开阅读</span></figcaption>
+        </figure>
+        <span class="card__cta" aria-hidden="true">读一段视觉故事
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 14 14 6M8 6h6v6"/></svg>
+        </span>
+        <button class="card__hit" type="button" data-open="story" aria-haspopup="dialog" aria-label="展开视觉故事详情"></button>
+      </article>
+
+      <article class="card card--product" id="product" aria-labelledby="product-title">
+        <div class="card__head">
+          <span class="card__index">05</span>
+          <span class="card__label">产品介绍</span>
+        </div>
+        <div class="card__body">
+          <h2 id="product-title">一个为深读而生的<br><span>桌面阅读器。</span></h2>
+          <p>全文、评论、播客与订阅管理，都收进一张安静的桌面。</p>
+        </div>
+        <ul class="feature-chips" aria-label="产品能力">
+          <li>全文抓取</li>
+          <li>评论同读</li>
+          <li>播客播放</li>
+          <li>OPML 互通</li>
+          <li>本地优先</li>
+        </ul>
+        <figure class="reader-visual">
+          <img src="assets/app-reader.png" width="1512" height="950" loading="lazy" alt="ReadSS 文章详情界面：左侧为文章，右侧为评论列。">
+          <figcaption>开发中界面 · 演示内容</figcaption>
+        </figure>
+        <span class="card__cta" aria-hidden="true">看看它如何工作
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 14 14 6M8 6h6v6"/></svg>
+        </span>
+        <button class="card__hit" type="button" data-open="product" aria-haspopup="dialog" aria-label="展开产品介绍详情"></button>
+      </article>
+
+      <article class="card card--experience" id="experience" aria-labelledby="experience-title">
+        <div class="card__head">
+          <span class="card__index">06</span>
+          <span class="card__label">体验入口</span>
+        </div>
+        <div class="card__body">
+          <h2 id="experience-title">先完成一次<br><span>本地演示申请。</span></h2>
+          <p>留下称呼和邮箱，展开申请表。所有输入都只在这个浏览器里完成校验，不会发往任何服务商。</p>
+        </div>
+        <div class="form-teaser">
+          <div class="form-teaser__top">
+            <span>DEMO REQUEST</span>
+            <span class="form-teaser__status"><i aria-hidden="true"></i>本地</span>
+          </div>
+          <div class="form-teaser__line"><span>称呼</span><i></i></div>
+          <div class="form-teaser__line"><span>邮箱</span><i></i></div>
+          <div class="form-teaser__line form-teaser__line--short"><span>期待体验</span><i></i></div>
+          <div class="form-teaser__tick" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="m5 12 4.5 4.5L19 7"/></svg>
+            <span>本地校验示意</span>
+          </div>
+        </div>
+        <p class="local-promise"><span aria-hidden="true"></span>不发送 · 不存储 · 仅本地校验</p>
+        <span class="card__cta" aria-hidden="true">填写演示申请表
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 14 14 6M8 6h6v6"/></svg>
+        </span>
+        <button class="card__hit" type="button" data-open="experience" aria-haspopup="dialog" aria-label="展开体验入口和本地演示申请表"></button>
+      </article>
+    </section>
+
+    <section class="closing-note" aria-label="说明">
+      <p>RSS 的新时代，不是让信息跑得更快，而是把决定权留在你手里。</p>
+      <p class="closing-note__meta">ReadSS · 暂定名 · 概念提案</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer__brand">
+      <img src="assets/readss-icon.svg" width="30" height="30" alt="">
+      <p><strong>ReadSS</strong><span>RSS，重新被选择。</span></p>
+    </div>
+    <p class="site-footer__note">本网站为产品概念演示，未提供真实申请、账号、支付或外部服务；页面中的订阅、文章和界面内容均为演示数据。ReadSS 为暂定名称，功能与界面仍可能变化。</p>
+    <a class="site-footer__top" href="#top">回到顶部 <span aria-hidden="true">↑</span></a>
+  </footer>
+
+  <dialog class="detail-dialog" id="detail-dialog" aria-labelledby="detail-title-brand">
+    <div class="dialog-shell">
+      <div class="dialog-bar">
+        <span class="dialog-bar__label">READSS / DETAIL</span>
+        <button class="dialog-close" type="button" data-close aria-label="关闭详情">
+          关闭
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 6 8 8M14 6l-8 8"/></svg>
+        </button>
+      </div>
+
+      <div class="dialog-scroll">
+        <section class="detail-panel" data-panel="brand">
+          <p class="eyebrow">01 / 品牌主张</p>
+          <h2 class="detail-panel__title" id="detail-title-brand" tabindex="-1">RSS 的新时代，<br>不是更快，而是<span>更清醒。</span></h2>
+          <p class="detail-panel__lead">信息不该只在推荐流里滚动。它应该有一个你亲手挑选的入口，一份可以慢慢读完的版面，以及一个不会被下一次刷新冲走的位置。</p>
+          <div class="manifesto-grid">
+            <article>
+              <span>01</span>
+              <h3>选择，而不是猜测</h3>
+              <p>ReadSS 从订阅开始。你决定来源、分组与阅读顺序；界面不根据停留时长或情绪标签替你排列内容。</p>
+            </article>
+            <article>
+              <span>02</span>
+              <h3>深度，而不是堆积</h3>
+              <p>把一篇文章读完，把评论区打开，把一期播客听完。产品围绕完整阅读组织，而不是围绕下一条推送。</p>
+            </article>
+            <article>
+              <span>03</span>
+              <h3>本地，而不是云端牢笼</h3>
+              <p>订阅、已读和播放进度保存在本机。没有账号墙，也没有遥测；阅读是一件私人的事。</p>
+            </article>
+          </div>
+          <blockquote class="pull-quote">“不是让信息更多，而是让真正重要的内容更容易抵达。”</blockquote>
+          <div class="panel-note">
+            <strong>关于这份提案</strong>
+            <p>ReadSS 为暂定名称。本页是品牌与产品概念演示，不代表正式发布承诺；图片中的界面与内容均为演示数据。</p>
+          </div>
+        </section>
+
+        <section class="detail-panel" data-panel="value" hidden>
+          <p class="eyebrow">02 / 服务价值</p>
+          <h2 class="detail-panel__title" id="detail-title-value" tabindex="-1">把阅读的控制权，<br>交还给<span>读者。</span></h2>
+          <p class="detail-panel__lead">订阅是一种明确的表达：我愿意把注意力留给这些来源。ReadSS 的工作，是让这份选择不被别的力量打乱。</p>
+          <div class="feature-grid feature-grid--value">
+            <article>
+              <span>01</span>
+              <h3>只订阅，不猜你喜欢</h3>
+              <p>时间线由你的订阅与时间组织。读什么、读多久、何时停下，由你决定，而不是由一次停留推演下一次点击。</p>
+            </article>
+            <article>
+              <span>02</span>
+              <h3>读到文章之外</h3>
+              <p>获取原文完整正文，并把公开评论区带到正文旁边。文章与讨论各占一列，互不打断。</p>
+            </article>
+            <article>
+              <span>03</span>
+              <h3>一种桌面，多种内容</h3>
+              <p>文章、社交、图片、视频与播客各自归档，却共享同一套阅读节奏与操作方式。</p>
+            </article>
+            <article>
+              <span>04</span>
+              <h3>数据留在本机</h3>
+              <p>本地 SQLite 负责订阅、已读、星标和播放进度。无需注册账号，也没有遥测上报。</p>
+            </article>
+          </div>
+          <div class="panel-note">
+            <strong>说明</strong>
+            <p>以上描述的是 ReadSS 的产品价值方向；具体功能以实际发布版本为准。本页不包含真实用户评价或业绩数据。</p>
+          </div>
+        </section>
+
+        <section class="detail-panel" data-panel="device" hidden>
+          <p class="eyebrow">03 / 设备</p>
+          <h2 class="detail-panel__title" id="detail-title-device" tabindex="-1">一张桌面，<br>容得下<span>完整的阅读旅程。</span></h2>
+          <p class="detail-panel__lead">桌面是主舞台，窗口收窄也不失序。列表、文章、评论与播放器会随空间重新排布，但阅读的位置保持稳定。</p>
+          <figure class="detail-figure detail-figure--desktop">
+            <img src="assets/app-desktop.png" width="1512" height="950" loading="lazy" alt="ReadSS 桌面应用完整界面截图。">
+            <figcaption>桌面界面 · 开发中版本 · 文章与订阅均为演示内容</figcaption>
+          </figure>
+          <div class="spec-strip">
+            <div><span>桌面优先</span><p>面向 Windows 桌面的阅读空间，列表与正文各自展开。</p></div>
+            <div><span>窄窗响应</span><p>窗口收窄后，文章与评论可以切换查看，避免内容被挤压。</p></div>
+            <div><span>键盘友好</span><p>J / K 浏览，M 标记已读，S 加星标，Space 播放或暂停播客。</p></div>
+          </div>
+          <div class="detail-split">
+            <figure class="detail-figure detail-figure--narrow">
+              <img src="assets/app-narrow.png" width="390" height="844" loading="lazy" alt="ReadSS 窄窗模式下的文章列表截图。">
+              <figcaption>窄窗布局 · 开发中版本 · 内容为演示数据</figcaption>
+            </figure>
+            <div class="detail-split__copy">
+              <h3>在同一处，继续读下去</h3>
+              <p>ReadSS 当前为 Windows 桌面应用的概念方向，截图来自同项目的开发中界面。桌面到窄窗的变化，是为了让同一份订阅在不同空间里都保持可读。</p>
+              <p class="fine-print">界面与功能仍可能变化；页面不表示已经提供移动端原生应用。</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="detail-panel" data-panel="story" hidden>
+          <p class="eyebrow">04 / 视觉故事</p>
+          <h2 class="detail-panel__title" id="detail-title-story" tabindex="-1">当订阅有了颜色，<br>时间线也开始<span>呼吸。</span></h2>
+          <p class="detail-panel__lead">一条时间线不只是信息流。它可以有来自来源的性格、有疏密有致的节奏，也可以从一张卡片自然展开成一篇文章。</p>
+          <figure class="detail-figure detail-figure--story-art">
+            <img src="assets/story-3d.jpg" width="900" height="1125" loading="lazy" alt="以粉色、淡紫和浅绿卡片组成的 3D 视觉故事，中心带有橙色 RSS 弧线。">
+            <figcaption>概念视觉 · 非产品界面</figcaption>
+          </figure>
+          <ol class="story-steps">
+            <li><span>01</span><div><h3>颜色从来源里长出来</h3><p>从订阅源图标中提取主题色，变成封面与图片占位的底色。不同来源有自己的识别度，但不会喧宾夺主。</p></div></li>
+            <li><span>02</span><div><h3>版面随内容呼吸</h3><p>时间线列表与瀑布流并存。有图、无图、长文或短片，都能找到稳定的节奏，不因图片加载而跳来跳去。</p></div></li>
+            <li><span>03</span><div><h3>从一张卡片，展开一个世界</h3><p>点击卡片，封面随窗口一起展开，进入正文、作者与评论。阅读的连续性由动效轻声托住。</p></div></li>
+          </ol>
+          <figure class="detail-figure detail-figure--screenshot">
+            <img src="assets/app-masonry.png" width="1512" height="950" loading="lazy" alt="ReadSS 浅色瀑布流界面截图，彩色封面卡片排列成多列。">
+            <figcaption>瀑布流界面 · 开发中版本 · 内容为演示数据</figcaption>
+          </figure>
+          <div class="panel-note">
+            <strong>关于视觉素材</strong>
+            <p>本页中的纸张与卡片 3D 图像是为概念提案原创的氛围素材，不是产品界面；产品截图中的订阅和文章内容均为演示数据。</p>
+          </div>
+        </section>
+
+        <section class="detail-panel" data-panel="product" hidden>
+          <p class="eyebrow">05 / 产品介绍</p>
+          <h2 class="detail-panel__title" id="detail-title-product" tabindex="-1">少一点切换，<br>多一点<span>沉浸。</span></h2>
+          <p class="detail-panel__lead">ReadSS 把阅读器需要的东西放进同一条桌面动线：订阅、发现、完整文章、公开评论与播客，不需要在工作流之间来回搬运注意力。</p>
+          <div class="feature-grid">
+            <article><span>01</span><h3>全文与评论同读</h3><p>从原文提取完整正文；把站点公开的评论区带到文章旁，阅读与讨论并排进行。</p></article>
+            <article><span>02</span><h3>五种内容形态</h3><p>文章、社交、图片、视频和播客各归其位，用同一套列表与筛选方式浏览。</p></article>
+            <article><span>03</span><h3>播客就地在场</h3><p>列表、卡片和详情页都能开播；支持倍速、后退 15 秒、前进 30 秒与进度记忆。</p></article>
+            <article><span>04</span><h3>订阅与 OPML</h3><p>输入网址自动发现 RSS、Atom 或 JSON Feed，也可以用 OPML 与其他阅读器互通。</p></article>
+            <article><span>05</span><h3>本地优先</h3><p>本地 SQLite 保存订阅与阅读状态，不依赖账号、不明文上传阅读记录，也没有遥测。</p></article>
+            <article><span>06</span><h3>键盘与命令面板</h3><p>以 J / K 移动、用快捷键标记与播放，也可以通过命令面板搜索与跳转。</p></article>
+          </div>
+          <figure class="detail-figure detail-figure--reader">
+            <img src="assets/app-reader.png" width="1512" height="950" loading="lazy" alt="ReadSS 文章阅读与评论界面截图。">
+            <figcaption>文章与评论界面 · 开发中版本 · 内容为演示数据</figcaption>
+          </figure>
+          <div class="panel-actions">
+            <button class="button button--dark" type="button" data-switch="experience">
+              前往本地演示申请
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h12M11 5l5 5-5 5"/></svg>
+            </button>
+            <p>无需账号，也不会发送任何信息。</p>
+          </div>
+          <div class="panel-note">
+            <strong>说明</strong>
+            <p>以上功能基于开发中版本的产品方向整理，具体体验可能随版本变化。本站不提供登录、支付、真实申请或外部服务。</p>
+          </div>
+        </section>
+
+        <section class="detail-panel detail-panel--experience" data-panel="experience" hidden>
+          <p class="eyebrow">06 / 体验入口</p>
+          <div class="experience-grid">
+            <div class="experience-intro">
+              <h2 class="detail-panel__title" id="detail-title-experience" tabindex="-1">把想法写下来，<br><span>先完成一次本地校验。</span></h2>
+              <p class="detail-panel__lead">这是一份用于展示交互流程的演示申请表。真实预约尚未接入，提交不会联系你，也不会离开当前浏览器。</p>
+              <ul class="experience-points">
+                <li><span>本地</span><p>全部字段只在当前页面中进行校验。</p></li>
+                <li><span>不发送</span><p>不会向 ReadSS、任何服务商或第三方接口提交数据。</p></li>
+                <li><span>不留存</span><p>没有数据库或服务端存储，刷新页面后输入即消失。</p></li>
+              </ul>
+              <div class="local-notice">
+                <span class="local-notice__dot" aria-hidden="true"></span>
+                <p><strong>明确提示：</strong>此表单为本地演示，未发送给服务商，也不会有人收到你的申请。</p>
+              </div>
+            </div>
+
+            <div class="form-card">
+              <form id="demo-form" novalidate>
+                <div class="form-card__heading">
+                  <div>
+                    <p class="form-card__eyebrow">LOCAL DEMO FORM</p>
+                    <h3>体验申请 · 演示</h3>
+                  </div>
+                  <span class="form-card__badge">不发送</span>
+                </div>
+
+                <div class="field">
+                  <label for="applicant-name">怎么称呼你？</label>
+                  <input id="applicant-name" name="name" type="text" autocomplete="name" required minlength="2" maxlength="24" placeholder="例如：林默" aria-describedby="name-help name-error">
+                  <p class="field__help" id="name-help">至少 2 个字符，仅用于本次演示反馈。</p>
+                  <p class="field__error" id="name-error" aria-live="polite"></p>
+                </div>
+
+                <div class="field">
+                  <label for="applicant-email">邮箱地址</label>
+                  <input id="applicant-email" name="email" type="email" autocomplete="email" required placeholder="name@example.com" aria-describedby="email-help email-error">
+                  <p class="field__help" id="email-help">不会发送邮件，也不会保存此地址。</p>
+                  <p class="field__error" id="email-error" aria-live="polite"></p>
+                </div>
+
+                <div class="field">
+                  <label for="applicant-interest">最想先体验什么？</label>
+                  <select id="applicant-interest" name="interest" required aria-describedby="interest-help interest-error">
+                    <option value="" selected disabled>请选择一项</option>
+                    <option value="reading">桌面阅读与订阅</option>
+                    <option value="fulltext">全文与评论</option>
+                    <option value="audio">播客与音频</option>
+                    <option value="organizing">OPML 与订阅整理</option>
+                  </select>
+                  <p class="field__help" id="interest-help">选择一项，用于演示表单的必填校验。</p>
+                  <p class="field__error" id="interest-error" aria-live="polite"></p>
+                </div>
+
+                <p class="form-privacy">本地演示：提交只触发浏览器内校验，不会发送给任何服务商，也不会被保存。</p>
+
+                <div class="form-actions">
+                  <button class="button button--accent" type="submit">在本地完成校验</button>
+                  <button class="button button--text" type="reset">清空内容</button>
+                </div>
+                <p class="form-status" aria-live="polite"></p>
+              </form>
+
+              <div class="form-success" id="form-success" role="status" tabindex="-1" hidden>
+                <span class="form-success__mark" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="m5 12 4.5 4.5L19 7"/></svg>
+                </span>
+                <p class="eyebrow">LOCAL CHECK COMPLETE</p>
+                <h3>已在本地完成校验。</h3>
+                <p>没有发送给任何服务商，也没有保存你的信息。</p>
+                <p class="fine-print">这是 ReadSS 概念网站的交互演示，真实体验预约尚未接入。</p>
+                <button class="button button--outline" type="button" data-reset-form>重新填写</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </dialog>
+</body>
+</html>

@@ -82,3 +82,23 @@ type TranscribeEngine struct {
 	CanDiarize bool             `json:"canDiarize"`
 	Missing    []string         `json:"missing"`
 }
+
+type WhisperModel struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Filename    string `json:"filename"`
+	Size        int64  `json:"size"`
+	Installed   bool   `json:"installed"`
+	Active      bool   `json:"active"`
+	Bundled     bool   `json:"bundled"`
+}
+
+type WhisperModelDownload struct {
+	ModelID    string `json:"modelId"`
+	Status     string `json:"status"`
+	Progress   int    `json:"progress"`
+	Downloaded int64  `json:"downloaded"`
+	Total      int64  `json:"total"`
+	Error      string `json:"error"`
+}
