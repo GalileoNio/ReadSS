@@ -26,7 +26,18 @@
     --fo-item-hover: hsl(240 4% 70% / 0.2);
     --fo-item-active: hsl(240 4% 62% / 0.3);
 
-      --fo-entry-col-w: 450px;
+    --fo-entry-col-w: 450px;
+
+    /* Surface grammar and geometry (DESIGN-REVIEW §3). */
+    --r-control: 8px;
+    --r-card: 10px;
+    --r-panel: 12px;
+    --h-header: 53px;
+    --w-rail: 400px;
+    --w-col: 900px;
+    --w-dialog: 560px;
+    --modal-w: min(1200px, 94vw);
+    --modal-h: min(92vh, 920px);
 
     color-scheme: light;
   }
@@ -142,7 +153,7 @@
   }
 
   .menu-surface {
-    @apply rounded-lg border border-border bg-background p-1 shadow-pop;
+    @apply rounded-panel border border-border bg-background p-1 shadow-pop;
   }
   .menu-item {
     @apply flex w-full cursor-default items-center gap-2 rounded px-2 py-1.5 text-left
@@ -196,7 +207,7 @@
    the article. Wide elements therefore scroll inside the article instead.
 --------------------------------------------------------------------------- */
 .article-content {
-  @apply text-[15px] leading-[1.75] text-fg/85;
+  @apply text-read text-fg/85;
   word-break: break-word;
   overflow-x: auto;
   max-width: 100%;
@@ -228,7 +239,7 @@
   @apply text-[26px];
 }
 .article-content h2 {
-  @apply text-[21px];
+  @apply text-[22px];
 }
 .article-content h3 {
   @apply text-[17px];
@@ -295,7 +306,7 @@
 /* max-content stops the auto table algorithm from squeezing columns down to
    one character; min-width:100% keeps a narrow table filling the column. */
 .article-content table {
-  @apply border-collapse text-[14px];
+  @apply border-collapse text-[13px];
   width: max-content;
   min-width: 100%;
 }
@@ -366,7 +377,7 @@
 /* The date line under the body; older cached threads keep it inline after
    the name, where the same muted style applies. */
 .article-content.comments .comment-meta {
-  @apply my-0 text-footnote font-normal tabular-nums text-fg/40;
+  @apply my-0 text-footnote font-normal tabular-nums text-fg/50;
 }
 .article-content.comments .comment-author .comment-meta {
   @apply inline;
@@ -389,7 +400,7 @@
 }
 /* Floor number beside the name: a small monospaced "#12" tag. */
 .article-content.comments .comment-floor {
-  @apply inline-flex h-4 items-center rounded-[4px] bg-fill px-1 font-mono text-[11px] font-semibold leading-none tabular-nums text-fg/45;
+  @apply inline-flex h-4 items-center rounded-[4px] bg-fill px-1 font-mono text-subheadline font-semibold leading-none tabular-nums text-fg/50;
 }
 .article-content.comments .comment-floor::before {
   content: '#';
@@ -397,10 +408,10 @@
 }
 /* Semantic badge, like Xiaohongshu's "作者" tag next to a name. */
 .article-content.comments .comment-badge {
-  @apply rounded-full bg-accent/10 px-1.5 py-px text-[11px] font-medium leading-4 text-accent;
+  @apply rounded-full bg-accent/10 px-1.5 py-px text-subheadline font-medium leading-4 text-accent;
 }
 .article-content.comments .comment__content {
-  @apply break-words text-body leading-[1.6] text-fg/90;
+  @apply break-words text-body leading-[1.6] text-fg/85;
 }
 .article-content.comments .comment__content p:first-child {
   @apply mt-0;
@@ -411,10 +422,10 @@
 /* Avatars: one rule for a real image and for the initials fallback, so a
    thread keeps a steady left edge either way. */
 .article-content.comments .avatar {
-  @apply mr-0 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full align-middle text-[15px] ring-1 ring-border;
+  @apply mr-0 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full align-middle text-headline;
 }
 .article-content.comments .comment .comment .avatar {
-  @apply h-6 w-6 text-[11px];
+  @apply h-6 w-6 text-subheadline;
 }
 .article-content.comments img.avatar {
   @apply object-cover;

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Quote, X } from 'lucide-react';
 import { avatarGradient, cn, hueOf, initialOf } from '../lib/utils';
 
@@ -288,7 +288,7 @@ export function Kbd({ children }: { children: ReactNode }) {
     <kbd
       className={cn(
         'inline-flex h-4 min-w-4 items-center justify-center rounded-[4px] px-1',
-        'bg-fill font-sans text-[10px] font-medium text-fg/50',
+        'bg-fill font-sans text-footnote font-medium text-fg/50',
       )}
     >
       {children}
@@ -352,12 +352,11 @@ interface ModalProps {
   open: boolean;
   onClose: () => void;
   title?: string;
-  width?: number;
   children: ReactNode;
 }
 
 /** Centred dialog with Esc-to-close and an overlay click target. */
-export function Modal({ open, onClose, title, width = 520, children }: ModalProps) {
+export function Modal({ open, onClose, title, children }: ModalProps) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -380,7 +379,7 @@ export function Modal({ open, onClose, title, width = 520, children }: ModalProp
       />
       <div
         // Never wider than the viewport, so dialogs fit on a phone.
-        style={{ width: `min(${width}px, 94vw)`, maxHeight: '88vh' }}
+        style={{ width: 'min(var(--w-dialog), 94vw)', maxHeight: '88vh' }}
         className={cn(
           'relative z-10 flex animate-scale-in flex-col overflow-hidden rounded-xl',
           'border border-border bg-background shadow-modal',
@@ -392,7 +391,7 @@ export function Modal({ open, onClose, title, width = 520, children }: ModalProp
           <header className="flex items-center justify-between border-b border-border px-4 py-3">
             <h2 className="text-title3 font-semibold text-fg">{title}</h2>
             <IconButton title="关闭" onClick={onClose}>
-              <X size={15} />
+              <X size={14} />
             </IconButton>
           </header>
         )}
@@ -424,7 +423,7 @@ export function Field({
 }
 
 export const inputClass = cn(
-  'w-full rounded-md border border-border bg-fill/40 px-2.5 py-2 text-headline text-fg',
+  'w-full rounded border border-border bg-fill/40 px-2.5 py-2 text-headline text-fg/85',
   'placeholder:text-fg/25 focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent/25',
 );
 /**
@@ -437,10 +436,13 @@ export function CoverArt({
   title,
   seed,
   color,
+  thumb = false,
 }: {
   title: string;
   seed: string;
   color?: string;
+  /** Row thumbnail: same composition, title capped at the footnote size. */
+  thumb?: boolean;
 }) {
   const hue = hueOf(seed || '?');
   const markInk = color
@@ -453,15 +455,18 @@ export function CoverArt({
   // sits one level below it.
   return (
     <div className="absolute inset-0 [container-type:inline-size]">
-      <div className="absolute inset-0 flex items-center justify-center" style={{ padding: '7cqw' }}>
+      <div className="absolute inset-0 flex items-center justify-center" style={{ padding: thumb ? '12cqw' : '7cqw' }}>
         <Quote
           className="absolute shrink-0"
           style={{ color: markInk, left: '6cqw', top: '6cqw', width: '11cqw', height: '11cqw' }}
           aria-hidden="true"
         />
         <p
-          className="line-clamp-6 break-words text-center font-semibold leading-snug text-fg/90"
-          style={{ fontSize: 'clamp(13px, 6.2cqw, 64px)' }}
+          className={cn(
+            'break-words text-center font-semibold leading-snug text-fg/85',
+            thumb ? 'line-clamp-3 text-footnote' : 'line-clamp-6',
+          )}
+          style={thumb ? undefined : { fontSize: 'clamp(13px, 6.2cqw, 64px)' }}
         >
           {title}
         </p>
@@ -486,4 +491,52 @@ export function CoverArt({
 export function coverTint(seed: string, color?: string): string {
   if (color) return `color-mix(in srgb, ${color} 14%, transparent)`;
   return `hsl(${hueOf(seed || '?')} 58% 50% / 0.14)`;
+}
+
+/* ----------------------------------------------------------- MasonryGrid */
+
+/**
+ * Waterfall built from real flex columns, never CSS `columns-*`: a multi-column
+ * flow re-balances on every append and moves cards already on screen. Here item
+ * i always lands in column i % n, so new pages only grow columns downward
+ * (DESIGN.md §7.7).
+ */
+export function MasonryGrid<T>({
+  items,
+  getKey,
+  renderItem,
+}: {
+  items: T[];
+  getKey: (item: T) => string | number;
+  renderItem: (item: T) => ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [columns, setColumns] = useState(2);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const width = el.clientWidth;
+      setColumns(width >= 1200 ? 5 : width >= 900 ? 4 : width >= 640 ? 3 : 2);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={ref} data-wall="masonry" className="flex items-start gap-3">
+      {Array.from({ length: columns }, (_, col) => (
+        <div key={col} data-column={col} className="flex min-w-0 flex-1 flex-col gap-3">
+          {items
+            .filter((_, index) => index % columns === col)
+            .map((item) => (
+              <Fragment key={getKey(item)}>{renderItem(item)}</Fragment>
+            ))}
+        </div>
+      ))}
+    </div>
+  );
 }

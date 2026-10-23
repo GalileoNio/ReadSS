@@ -367,7 +367,7 @@ export function Reader({ modal = false }: { modal?: boolean }) {
                           {formatDate(entry.publishedAt)} · 约 {entry.readingMinutes} 分钟
                         </p>
                       </button>
-                      <span className="shrink-0 rounded-full bg-fill px-2.5 py-1 text-footnote font-medium text-fg/60">
+                      <span className="shrink-0 rounded-full bg-fill px-2.5 py-1 text-footnote font-medium text-fg/50">
                         已订阅
                       </span>
                     </div>

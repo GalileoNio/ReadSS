@@ -13,11 +13,13 @@ import * as api from '../lib/api';
 import { openExternal } from '../lib/feedActions';
 import { findFeedByUrl, followFeed, unfollowFeed } from '../lib/follow';
 import { useApp } from '../store/app';
+import { usePlayer } from '../store/player';
 import { useUI, type DetailOrigin } from '../store/ui';
 import { useViewport } from '../hooks/useViewport';
 import { VIEWS, type EntryDetail, type Feed } from '../lib/types';
 import { cn, formatClock, formatDate, hostOf } from '../lib/utils';
 import { CommentsPane } from './CommentsPane';
+import { PLAYER_DOCK_SPACE } from './PodcastPlayer';
 import { Reader } from './Reader';
 import { TranscriptPane } from './TranscriptPane';
 import { CARD_IMAGE_RADIUS, CoverArt, coverTint, FeedIcon, proxiedImageURL, Spinner } from './primitives';
@@ -88,6 +90,7 @@ export function ArticleModal() {
   const { isCompact } = useViewport();
   const [tab, setTab] = useState<'article' | 'comments' | 'transcript'>('article');
   const [railTab, setRailTab] = useState<'comments' | 'transcript'>('comments');
+  const playerActive = usePlayer((s) => s.entry !== null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const commentsRef = useRef<HTMLDivElement>(null);
@@ -492,7 +495,19 @@ export function ArticleModal() {
   return (
     <div
       ref={rootRef}
-      className="fixed inset-0 z-50 flex items-center justify-center p-0 lg:p-5"
+      className={cn(
+        'fixed inset-0 z-50 flex justify-center',
+        playerActive
+          ? isCompact
+            ? 'items-start p-0'
+            : 'items-end px-5 pt-5'
+          : 'items-center p-0 lg:p-5',
+      )}
+      style={
+        playerActive && !isCompact
+          ? { paddingBottom: PLAYER_DOCK_SPACE.desktop }
+          : undefined
+      }
       role="dialog"
       aria-modal="true"
       aria-label="文章详情"
@@ -514,7 +529,7 @@ export function ArticleModal() {
           aria-label="关闭"
           className={cn(
             'absolute left-6 top-6 z-20 flex h-10 w-10 animate-fade-in items-center justify-center rounded-full',
-            'bg-background/90 text-fg/70 shadow-pop backdrop-blur transition-colors hover:bg-background hover:text-fg',
+            'bg-background/90 text-fg/85 shadow-pop backdrop-blur transition-colors hover:bg-background',
           )}
           onClick={close}
         >
@@ -560,7 +575,16 @@ export function ArticleModal() {
       <div
         ref={dialogRef}
         data-modal-panel=""
-        style={{ borderRadius: CARD_IMAGE_RADIUS }}
+        style={{
+          borderRadius: playerActive
+            ? `${CARD_IMAGE_RADIUS}px ${CARD_IMAGE_RADIUS}px 0 0`
+            : CARD_IMAGE_RADIUS,
+          height: playerActive
+            ? isCompact
+              ? `calc(100vh - ${PLAYER_DOCK_SPACE.compact})`
+              : `min(calc(100vh - ${PLAYER_DOCK_SPACE.desktop} - 1.25rem), 862px)`
+            : undefined,
+        }}
         className={cn(
           'relative z-10 flex h-[min(92vh,920px)] w-[min(1200px,calc(100vw-144px))] flex-col overflow-hidden',
           'bg-background shadow-modal dark:border dark:border-border',
@@ -643,7 +667,7 @@ export function ArticleModal() {
               'flex min-h-0 flex-col bg-background',
               isCompact
                 ? 'w-full min-w-0 flex-1'
-                : 'w-[400px] shrink-0 border-l border-border xl:w-[440px]',
+                : 'w-rail shrink-0 border-l border-border',
               isCompact && tab === 'article' && 'hidden',
             )}
           >
@@ -655,22 +679,22 @@ export function ArticleModal() {
                   onClick={() => setRailTab('transcript')}
                   className={cn(
                     'relative h-full text-callout font-medium transition-colors',
-                    railTab === 'transcript' ? 'text-fg' : 'text-fg/40 hover:text-fg/65',
+                    railTab === 'transcript' ? 'text-fg/85' : 'text-fg/50 hover:text-fg/85',
                   )}
                 >
                   字幕
-                  {railTab === 'transcript' && <span className="absolute inset-x-1 bottom-0 h-0.5 rounded-full bg-[#ff2442]" />}
+                  {railTab === 'transcript' && <span className="absolute inset-x-1 bottom-0 h-0.5 rounded-full bg-accent" />}
                 </button>
                 <button
                   type="button"
                   onClick={() => setRailTab('comments')}
                   className={cn(
                     'relative h-full text-callout font-medium transition-colors',
-                    railTab === 'comments' ? 'text-fg' : 'text-fg/40 hover:text-fg/65',
+                    railTab === 'comments' ? 'text-fg/85' : 'text-fg/50 hover:text-fg/85',
                   )}
                 >
                   讨论{entry.commentsCount > 0 ? ` ${entry.commentsCount}` : ''}
-                  {railTab === 'comments' && <span className="absolute inset-x-1 bottom-0 h-0.5 rounded-full bg-[#ff2442]" />}
+                  {railTab === 'comments' && <span className="absolute inset-x-1 bottom-0 h-0.5 rounded-full bg-accent" />}
                 </button>
               </div>
             )}
@@ -681,7 +705,7 @@ export function ArticleModal() {
                 <>
                   <NoteMeta />
                   <div ref={commentsRef} className="scroll-mt-2">
-                    <CommentsPane embedded />
+                    <CommentsPane />
                   </div>
                 </>
               )}
@@ -793,7 +817,7 @@ function AuthorBarLoaded({ entry }: { entry: EntryDetail }) {
           <span className="block truncate text-headline font-medium text-fg/85 transition-colors group-hover:text-fg">
             {entry.feedTitle}
           </span>
-          <span className="mt-0.5 block truncate text-footnote text-fg/40">
+          <span className="mt-0.5 block truncate text-footnote text-fg/50">
             {entry.author || hostOf(entry.url) || '订阅源'}
           </span>
         </span>
@@ -808,7 +832,7 @@ function AuthorBarLoaded({ entry }: { entry: EntryDetail }) {
           className={cn(
             'group/follow flex h-9 min-w-[84px] shrink-0 items-center justify-center rounded-full px-5 text-callout font-medium transition-colors disabled:opacity-60',
             following
-              ? 'bg-fill text-fg/50 hover:bg-item-hover hover:text-fg/70'
+              ? 'bg-fill text-fg/50 hover:bg-item-hover hover:text-fg/85'
               : 'bg-accent text-white hover:opacity-90',
           )}
         >
@@ -840,7 +864,7 @@ function NoteMeta() {
 
   return (
     <div className="px-6 pt-4">
-      <p className="flex flex-wrap gap-x-2 gap-y-1 text-callout leading-relaxed text-[#13386c] dark:text-[#8fb3e8]">
+      <p className="flex flex-wrap gap-x-2 gap-y-1 text-callout leading-relaxed text-fg/50">
         {tags.map((tag, i) => (
           <span key={i}>#{tag}</span>
         ))}
@@ -884,7 +908,7 @@ function EngageBar({ onComment }: { onComment: () => void }) {
   }
 
   const action =
-    'flex h-10 shrink-0 items-center gap-1 rounded-full px-2 text-callout text-fg/60 transition-colors hover:bg-fill hover:text-fg disabled:opacity-40';
+    'flex h-10 shrink-0 items-center gap-1 rounded-full px-2 text-callout text-fg/50 transition-colors hover:bg-fill hover:text-fg/85 disabled:opacity-40';
 
   return (
     <div className="flex shrink-0 items-center gap-1 border-t border-border px-4 py-3">
@@ -892,7 +916,7 @@ function EngageBar({ onComment }: { onComment: () => void }) {
         type="button"
         disabled={!entry.url}
         onClick={() => openExternal(entry.url)}
-        className="mr-1 flex h-10 min-w-0 flex-1 items-center gap-2 rounded-full bg-fill px-4 text-left text-callout text-fg/40 transition-colors hover:text-fg/60 disabled:opacity-50"
+        className="mr-1 flex h-10 min-w-0 flex-1 items-center gap-2 rounded-full bg-fill px-4 text-left text-callout text-fg/50 transition-colors hover:text-fg/85 disabled:opacity-50"
       >
         <PenLine size={14} className="shrink-0" />
         <span className="truncate">去原文说点什么…</span>

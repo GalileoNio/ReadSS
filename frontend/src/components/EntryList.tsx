@@ -41,11 +41,11 @@ import {
 import { FeedSwitcher } from './FeedSwitcher';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import { useViewport } from '../hooks/useViewport';
-import { CardImage, FeedIcon, IconButton, RemoteImage, Spinner } from './primitives';
+import { CardImage, CoverArt, coverTint, FeedIcon, IconButton, MasonryGrid, RemoteImage, Spinner } from './primitives';
 
 /** Inline glyphs for the five views, sized for the header capsule group. */
 type ViewGlyphProps = { viewKey: string; size?: number; filled?: boolean };
-function ViewGlyph({ viewKey, size = 12, filled = false }: ViewGlyphProps) {
+function ViewGlyph({ viewKey, size = 14, filled = false }: ViewGlyphProps) {
   switch (viewKey) {
     case 'all':
       return <AnimatedHomeIcon size={size} filled={filled} />;
@@ -86,6 +86,8 @@ interface RowProps {
   edgeToEdge: boolean;
   /** This row has become the open article modal: keep the slot, draw nothing. */
   blank: boolean;
+  /** The feed icon's dominant colour, the tint of the drawn cover. */
+  feedColor?: string;
   /** Loopback image proxy origin, or '' to load images directly. */
   imageProxy: string;
   /** The clicked element is where the detail modal grows out of (DESIGN.md §7.11). */
@@ -94,11 +96,10 @@ interface RowProps {
 }
 
 /**
- * Timeline row. The unread indicator is an accent dot drawn 12px to the left
- * of the row, exactly as Folo does it — which is why the list needs horizontal
- * padding of at least 12px.
+ * Timeline row. The unread dot sits inside the row's left padding, right
+ * against the feed icon, so it never hangs outside the reading column.
  */
-function EntryRow({ entry, selected, dimRead, edgeToEdge, blank, imageProxy, onSelect, onContextMenu }: RowProps) {
+function EntryRow({ entry, selected, dimRead, edgeToEdge, blank, feedColor, imageProxy, onSelect, onContextMenu }: RowProps) {
   const dimmed = dimRead && entry.read;
   const isCurrent = usePlayer((s) => s.entry?.id === entry.id);
   const playing = usePlayer((s) => s.playing);
@@ -128,15 +129,14 @@ function EntryRow({ entry, selected, dimRead, edgeToEdge, blank, imageProxy, onS
         'group relative block w-full cursor-default text-left transition-colors duration-200',
         'hover:bg-item-hover',
         selected && 'bg-item-active',
-        edgeToEdge ? 'rounded-none' : 'rounded-md',
+        edgeToEdge ? 'rounded-none' : 'rounded-card',
         blank && 'invisible',
       )}
     >
-      {/* Unread dot */}
       {!entry.read && (
         <span
           aria-label="未读"
-          className="absolute -left-3 top-5 h-2 w-2 rounded-full bg-accent"
+          className="absolute left-[3px] top-[25px] h-1.5 w-1.5 rounded-full bg-accent"
         />
       )}
 
@@ -148,11 +148,11 @@ function EntryRow({ entry, selected, dimRead, edgeToEdge, blank, imageProxy, onS
           className="mt-0.5 mr-2"
         />
 
-        <div className="-mt-0.5 ml-1 min-w-0 flex-1 text-sm leading-tight">
+        <div className="-mt-0.5 ml-1 min-w-0 flex-1 text-headline leading-tight">
           {/* Meta: feed name · relative time */}
           <div
             className={cn(
-              'flex min-w-0 items-center gap-1 text-[10px] font-bold',
+              'flex min-w-0 items-center gap-1 text-footnote',
               dimmed ? 'text-fg/25' : 'text-fg/50',
             )}
           >
@@ -165,46 +165,48 @@ function EntryRow({ entry, selected, dimRead, edgeToEdge, blank, imageProxy, onS
                 <span
                   className={cn(
                     'inline-flex shrink-0 items-center gap-0.5 tabular-nums',
-                    isCurrent ? 'text-accent' : 'text-fg/50',
+                    isCurrent && 'text-accent',
                   )}
                 >
-                  <AudioLines size={10} />
+                  <AudioLines size={12} />
                   {total > 0
                     ? formatClock(isCurrent && livePosition > 0 ? livePosition : total)
                     : '播客'}
                 </span>
               </>
             )}
-            {entry.starred && <Star size={10} className="shrink-0 fill-amber-400 text-amber-400" />}
+            {entry.starred && <Star size={12} className="shrink-0 fill-amber-400 text-amber-400" />}
           </div>
 
           <h3
             className={cn(
-              'my-0.5 line-clamp-2 break-words font-medium',
-              dimmed ? 'text-fg/50' : 'text-fg',
+              'my-1 line-clamp-2 break-words font-medium',
+              dimmed ? 'text-fg/50' : 'text-fg/85',
             )}
           >
             {entry.title}
           </h3>
 
           {entry.summary && (
-            <p className="line-clamp-2 text-[13px] leading-snug text-fg/50">{entry.summary}</p>
+            <p className="line-clamp-2 text-callout text-fg/50">{entry.summary}</p>
           )}
         </div>
 
-        {entry.audioUrl ? (
-          <div className="relative ml-2 h-20 w-20 shrink-0 overflow-hidden rounded bg-gradient-to-br from-[#A855F7]/35 to-[#0EA5E9]/20">
-            <span className="absolute inset-0 flex items-center justify-center text-fg/50">
-              <AudioLines size={26} />
-            </span>
-            {entry.imageUrl && (
-              <RemoteImage
-                src={entry.imageUrl}
-                proxy={imageProxy}
-                referer={entry.url}
-                className="relative h-full w-full"
-              />
-            )}
+        <div
+          className="relative ml-3 h-20 w-20 shrink-0 overflow-hidden rounded"
+          style={entry.imageUrl ? undefined : { background: coverTint(entry.feedTitle || entry.title, feedColor) }}
+        >
+          {entry.imageUrl ? (
+            <RemoteImage
+              src={entry.imageUrl}
+              proxy={imageProxy}
+              referer={entry.url}
+              className="h-full w-full"
+            />
+          ) : (
+            <CoverArt thumb title={entry.title} seed={entry.feedTitle || entry.title} color={feedColor} />
+          )}
+          {entry.audioUrl && (
             <button
               type="button"
               title={isCurrent && playing ? '暂停' : '播放这一期'}
@@ -218,7 +220,7 @@ function EntryRow({ entry, selected, dimRead, edgeToEdge, blank, imageProxy, onS
                   : 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100',
               )}
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-background/90 text-fg shadow-pop">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-background/90 text-fg/85 shadow-pop">
                 {isCurrent && playing ? (
                   <Pause size={14} fill="currentColor" />
                 ) : (
@@ -226,20 +228,13 @@ function EntryRow({ entry, selected, dimRead, edgeToEdge, blank, imageProxy, onS
                 )}
               </span>
             </button>
-            {percent > 0 && (
-              <span className="absolute inset-x-0 bottom-0 h-0.5 bg-black/35">
-                <span className="block h-full bg-accent" style={{ width: `${percent}%` }} />
-              </span>
-            )}
-          </div>
-        ) : entry.imageUrl ? (
-          <RemoteImage
-            src={entry.imageUrl}
-            proxy={imageProxy}
-            referer={entry.url}
-            className="ml-2 h-20 w-20 shrink-0 rounded"
-          />
-        ) : null}
+          )}
+          {percent > 0 && (
+            <span className="absolute inset-x-0 bottom-0 h-0.5 bg-black/35">
+              <span className="block h-full bg-accent" style={{ width: `${percent}%` }} />
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -325,7 +320,7 @@ function EntryCard({ entry, selected, dimRead, feedColor, imageProxy, onSelect, 
           </button>
         )}
         {entry.audioUrl && entry.audioDuration > 0 && (
-          <span className="absolute bottom-2 left-2 rounded-full bg-black/55 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-white backdrop-blur">
+          <span className="absolute bottom-2 left-2 rounded-full bg-black/55 px-1.5 py-0.5 text-footnote font-medium tabular-nums text-white backdrop-blur">
             {formatClock(entry.audioDuration)}
           </span>
         )}
@@ -338,7 +333,7 @@ function EntryCard({ entry, selected, dimRead, feedColor, imageProxy, onSelect, 
           <h3
             className={cn(
               'line-clamp-3 break-words text-headline font-medium leading-snug',
-              dimmed ? 'text-fg/50' : 'text-fg',
+              dimmed ? 'text-fg/50' : 'text-fg/85',
             )}
           >
             {entry.title}
@@ -346,16 +341,16 @@ function EntryCard({ entry, selected, dimRead, feedColor, imageProxy, onSelect, 
         )}
         <div
           className={cn(
-            'flex min-w-0 items-center gap-1 text-[10px] font-bold',
+            'flex min-w-0 items-center gap-1 text-footnote',
             entry.imageUrl ? 'mt-1.5' : 'mt-0.5',
             dimmed ? 'text-fg/25' : 'text-fg/50',
           )}
         >
-          <FeedIcon title={entry.feedTitle} iconUrl={entry.feedIcon} size={12} />
+          <FeedIcon title={entry.feedTitle} iconUrl={entry.feedIcon} size={16} />
           <span className="truncate">{entry.feedTitle}</span>
           <span aria-hidden>·</span>
           <span className="shrink-0 tabular-nums">{relativeTime(entry.publishedAt)}</span>
-          {entry.starred && <Star size={10} className="shrink-0 fill-amber-400 text-amber-400" />}
+          {entry.starred && <Star size={12} className="shrink-0 fill-amber-400 text-amber-400" />}
         </div>
       </div>
 
@@ -506,21 +501,6 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
     [feeds],
   );
 
-  /* Waterfall tracks: 2 on a phone, up to 5 on a wide page. */
-  const [columns, setColumns] = useState(2);
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const measure = () => {
-      const width = el.clientWidth;
-      setColumns(width >= 1200 ? 5 : width >= 900 ? 4 : width >= 640 ? 3 : 2);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
   const handleMarkAll = () => {
     if (total === 0) {
       pushToast({ message: '当前列表没有文章', tone: 'info' });
@@ -579,10 +559,10 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
   /* 首页 + the four smart lists, as one capsule group: in the header on wide
      windows, as the floating bottom bar on phones (DESIGN.md §7.5). */
   const renderSmartGroup = (compact: boolean) => {
-    const iconSize = compact ? 17 : 13;
-    const idleSize = compact ? 'w-9' : 'w-5';
+    const iconSize = compact ? 16 : 14;
+    const idleSize = compact ? 'w-9' : 'w-6';
     // Only padding/gap: the height comes from the shared line below.
-    const activeSize = compact ? 'gap-1 px-2.5' : 'gap-1 px-1.5';
+    const activeSize = compact ? 'gap-1 px-2.5' : 'gap-1 px-2';
     const homeActive = selection.scope === 'all' && selection.view === 'all';
     const item = (
       key: string,
@@ -608,14 +588,14 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
           mount,
           'flex items-center justify-center rounded-full text-fg/50 transition-colors duration-150',
           'hover:bg-item-hover hover:text-fg/85',
-          compact ? 'h-9' : 'h-5',
-          active ? cn(activeSize, 'bg-background text-fg shadow-sm') : idleSize,
+          compact ? 'h-9' : 'h-6',
+          active ? cn(activeSize, 'bg-background text-fg/85 shadow-sm') : idleSize,
         )}
       >
         {icon}
         {active && (
           <span
-            className={cn('font-medium leading-none', compact ? 'text-caption' : 'text-[0.65rem]')}
+            className={cn('font-medium leading-none', compact ? 'text-callout' : 'text-footnote')}
           >
             {label}
           </span>
@@ -624,7 +604,7 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
           <span
             className={cn(
               'leading-none tabular-nums text-fg/50',
-              compact ? 'text-[0.7rem]' : 'text-[0.6rem]',
+              compact ? 'text-subheadline' : 'text-footnote',
             )}
           >
             {count > 99 ? '99+' : count}
@@ -680,21 +660,22 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
       {/* Header ------------------------------------------------------- */}
       <header
         className={cn(
-          'flex h-[53px] w-full shrink-0 items-center gap-2 border-b border-border pt-2',
+          'h-header w-full shrink-0 border-b border-border pt-2',
           mobileFullWidth ? 'px-2' : 'px-4',
         )}
       >
-
-
+        {/* In list mode the header shares the reading column's edges, so the
+            screen has a single alignment line (DESIGN-REVIEW §4.1). */}
+        <div className={cn('flex h-full w-full items-center gap-2', !masonry && 'mx-auto max-w-col')}>
         {/* Filter groups: views (left) and smart lists (right). Each is one
             circular capsule; only the active item expands to show its name.
             The cluster scrolls rather than pushing the actions off a narrow
             column. DESIGN.md §7.5. */}
-        <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
+        <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-3 overflow-x-auto">
           {/* Feed / category name is the only title left: view and smart-list
               scopes state their own name inside the groups. */}
           {heading.icon || selection.scope === 'feed' || selection.scope === 'category' ? (
-            <>
+            <div className="flex min-w-0 shrink items-center gap-2">
               {heading.icon ? (
                 <FeedIcon
                   title={heading.title}
@@ -703,10 +684,10 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
                   className="shrink-0"
                 />
               ) : null}
-              <h2 className="max-w-[8rem] min-w-0 shrink truncate text-lg font-bold leading-tight text-fg">
+              <h2 className="max-w-[8rem] min-w-0 shrink truncate text-title2 font-bold text-fg/85">
                 {heading.title}
               </h2>
-            </>
+            </div>
           ) : null}
 
           {/* Views */}
@@ -727,21 +708,21 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
                   data-view={view.key}
                   onClick={() => void selectView(view.key)}
                   className={cn(
-                    'view-tab flex h-5 items-center justify-center rounded-full',
+                    'view-tab flex h-6 items-center justify-center rounded-full',
                     'transition-colors duration-150',
                     active
-                      ? 'gap-1 bg-background px-1.5 text-fg shadow-sm'
-                      : 'w-5 text-fg/50 hover:bg-item-hover hover:text-fg/85',
+                      ? 'gap-1 bg-background px-2 text-fg/85 shadow-sm'
+                      : 'w-6 text-fg/50 hover:bg-item-hover hover:text-fg/85',
                   )}
                 >
                   <span style={active ? { color: view.color } : undefined}>
                     <ViewGlyph viewKey={view.key} filled={active} />
                   </span>
                   {active && (
-                    <span className="text-[0.65rem] font-medium leading-none">{view.label}</span>
+                    <span className="text-footnote font-medium leading-none">{view.label}</span>
                   )}
                   {active && settings.sidebarShowUnreadCount && count > 0 && (
-                    <span className="text-[0.6rem] leading-none tabular-nums text-fg/50">
+                    <span className="text-footnote leading-none tabular-nums text-fg/50">
                       {count > 99 ? '99+' : count}
                     </span>
                   )}
@@ -754,46 +735,48 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
           {!isCompact && renderSmartGroup(false)}
         </div>
 
-        <div className="flex shrink-0 items-center gap-0.5 text-fg/50">
+        <div className="flex shrink-0 items-center gap-0.5">
           <IconButton
             title="刷新 (R)"
             disabled={refreshing}
             onClick={() => void refresh(selection.scope === 'feed' ? [selection.feedId] : undefined)}
           >
-            {refreshing ? <Spinner size={14} /> : <RefreshCw size={15} />}
+            {refreshing ? <Spinner size={14} /> : <RefreshCw size={14} />}
           </IconButton>
           <IconButton
             title={unreadOnly ? '显示全部 (U)' : '仅显示未读 (U)'}
             active={unreadOnly}
             onClick={() => setUnreadOnly(!unreadOnly)}
           >
-            {unreadOnly ? <CircleDot size={15} /> : <Circle size={15} />}
+            {unreadOnly ? <CircleDot size={16} /> : <Circle size={16} />}
           </IconButton>
           <IconButton
             title={settings.timelineSortAsc ? '按最新在前' : '按最早在前'}
             onClick={() => void updateSettings({ timelineSortAsc: !settings.timelineSortAsc })}
           >
-            <ArrowDownUp size={15} />
+            <ArrowDownUp size={16} />
           </IconButton>
           <IconButton title="全部标记为已读 (Shift+Ctrl+A)" onClick={handleMarkAll}>
-            <CheckCircle2 size={15} />
+            <CheckCircle2 size={16} />
           </IconButton>
+        </div>
         </div>
       </header>
 
       {/* Search ------------------------------------------------------- */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
+      <div className={cn('shrink-0 border-b border-border py-1.5', mobileFullWidth ? 'px-2' : 'px-4')}>
+        <div className={cn('flex w-full items-center gap-2', !masonry && 'mx-auto max-w-col')}>
         <Search size={14} className="shrink-0 text-fg/25" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="搜索文章…"
-          className="min-w-0 flex-1 bg-transparent text-headline text-fg placeholder:text-fg/25 focus:outline-none"
+          className="min-w-0 flex-1 bg-transparent text-headline text-fg/85 placeholder:text-fg/25 focus:outline-none"
         />
         {search && (
           <button
             type="button"
-            className="shrink-0 text-footnote text-fg/50 hover:text-fg"
+            className="shrink-0 text-footnote text-fg/50 hover:text-fg/85"
             onClick={() => setSearch('')}
           >
             清除
@@ -806,8 +789,9 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
           active={masonry}
           onClick={() => void updateSettings({ entryLayout: masonry ? 'list' : 'masonry' })}
         >
-          {masonry ? <LayoutList size={15} /> : <LayoutGrid size={15} />}
+          {masonry ? <LayoutList size={16} /> : <LayoutGrid size={16} />}
         </IconButton>
+        </div>
       </div>
 
       {/* Rows --------------------------------------------------------- */}
@@ -839,7 +823,7 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
         >
           {pull.refreshing ? (
             <>
-              <Spinner size={12} className="mr-1.5" />
+              <Spinner size={14} className="mr-1.5" />
               正在刷新…
             </>
           ) : pull.pull >= pull.threshold ? (
@@ -860,53 +844,43 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
         )}
 
         {masonry ? (
-          /* Waterfall built from real columns rather than CSS multi-column:
-             a multi-column flow re-balances whenever anything is appended, so
-             loading the next page moved every card already on screen. With one
-             flex column per track, new entries can only grow a column downward
-             and every existing card keeps its position (DESIGN.md §7.7). */
           entries.length > 0 && (
-            <div data-wall="masonry" className="flex items-start gap-3">
-              {Array.from({ length: columns }, (_, col) => (
-                <div key={col} data-column={col} className="flex min-w-0 flex-1 flex-col gap-3">
-                  {entries
-                    .filter((_, index) => index % columns === col)
-                    .map((entry) => (
-                      <div
-                        key={entry.id}
-                        data-entry-id={entry.id}
-                        className={cn(
-                          // The card IS the article modal while it is open: keep
-                          // the slot in the wall (no reflow) but leave it empty.
-                          // It comes back once the modal has shrunk into it
-                          // (DESIGN.md §7.11).
-                          entry.id === selectedEntryId && 'invisible',
-                        )}
-                      >
-                        <EntryCard
-                          entry={entry}
-                          selected={entry.id === selectedEntryId}
-                          dimRead={settings.dimRead}
-                          feedColor={feedColors.get(entry.feedId)}
-                          imageProxy={imageProxy}
-                          onSelect={(e, el) => {
-                            setDetailOrigin(detailOriginOf(el, e, feedColors.get(e.feedId)));
-                            void openEntry(e.id);
-                          }}
-                          onContextMenu={entryMenu}
-                        />
-                      </div>
-                    ))}
+            <MasonryGrid
+              items={entries}
+              getKey={(entry) => entry.id}
+              renderItem={(entry) => (
+                <div
+                  data-entry-id={entry.id}
+                  className={cn(
+                    // The card IS the article modal while it is open: keep
+                    // the slot in the wall (no reflow) but leave it empty.
+                    // It comes back once the modal has shrunk into it
+                    // (DESIGN.md §7.11).
+                    entry.id === selectedEntryId && 'invisible',
+                  )}
+                >
+                  <EntryCard
+                    entry={entry}
+                    selected={entry.id === selectedEntryId}
+                    dimRead={settings.dimRead}
+                    feedColor={feedColors.get(entry.feedId)}
+                    imageProxy={imageProxy}
+                    onSelect={(e, el) => {
+                      setDetailOrigin(detailOriginOf(el, e, feedColors.get(e.feedId)));
+                      void openEntry(e.id);
+                    }}
+                    onContextMenu={entryMenu}
+                  />
                 </div>
-              ))}
-            </div>
+              )}
+            />
           )
         ) : (
-          <div className="mx-auto w-full max-w-[900px]">
+          <div className="mx-auto w-full max-w-col">
             {groupByDate(entries, settings.groupByDate).map((group) => (
               <div key={group.key}>
                 {group.label && (
-                  <div className="sticky top-0 z-[1] -mx-4 bg-background/95 px-4 py-1.5 text-footnote font-bold text-fg/50 backdrop-blur">
+                  <div className="sticky top-0 z-[1] -mx-4 bg-background/95 px-4 py-1.5 text-footnote font-medium text-fg/50 backdrop-blur">
                     {group.label}
                   </div>
                 )}
@@ -918,6 +892,7 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
                     dimRead={settings.dimRead}
                     edgeToEdge={edgeToEdge}
                     blank={entry.id === selectedEntryId}
+                    feedColor={feedColors.get(entry.feedId)}
                     imageProxy={imageProxy}
                     onSelect={(e, el) => {
                       setDetailOrigin(detailOriginOf(el, e, feedColors.get(e.feedId)));
@@ -933,7 +908,7 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
 
         {hasMore && (
           <div className="flex items-center justify-center py-3 text-callout text-fg/50">
-            <Spinner size={12} className="mr-2" />
+            <Spinner size={14} className="mr-2" />
             加载更多…（共 {total} 篇）
           </div>
         )}
@@ -964,7 +939,7 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
           the feed switcher sits above it (DESIGN.md §7.5). */}
       {isCompact && (
         <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <div className="pointer-events-auto w-full max-w-md rounded-full border border-border bg-background/70 p-1 shadow-pop backdrop-blur-xl">
+          <div className="pointer-events-auto w-full max-w-md rounded-full border border-border/70 bg-background/85 p-1 shadow-pop backdrop-blur-xl">
             {renderSmartGroup(true)}
           </div>
         </div>
@@ -977,23 +952,23 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
         )}
       >
         {switcherOpen && (
-          <div className="pointer-events-auto flex max-h-[min(60vh,26rem)] flex-col overflow-hidden rounded-xl border border-border bg-background/75 shadow-modal backdrop-blur-xl">
+          <div className="pointer-events-auto flex max-h-[min(60vh,26rem)] flex-col overflow-hidden rounded-panel border border-border bg-background/85 shadow-modal backdrop-blur-xl">
             <FeedSwitcher onNavigate={() => setSwitcherOpen(false)} />
           </div>
         )}
         {/* The bar replaces what the sidebar used to hold: current context,
             search, settings and the feed switcher toggle (DESIGN.md §7.6). */}
-        <div className="pointer-events-auto flex h-9 items-center rounded-full border border-border bg-background/70 pl-1 pr-1 shadow-pop backdrop-blur-xl">
+        <div className="pointer-events-auto flex h-9 items-center rounded-full border border-border/70 bg-background/85 px-1 shadow-pop backdrop-blur-xl">
           <button
             type="button"
             aria-expanded={switcherOpen}
             data-switcher="toggle"
             onClick={() => setSwitcherOpen((v) => !v)}
-            className="flex h-full min-w-0 flex-1 items-center gap-2 rounded-full px-2 text-left transition-colors hover:bg-item-hover"
+            className="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-full px-2 text-left transition-colors hover:bg-item-hover"
           >
             {refreshing && progress ? (
               <>
-                <Spinner size={13} className="shrink-0" />
+                <Spinner size={14} className="shrink-0" />
                 <span className="min-w-0 flex-1 truncate text-headline font-medium text-fg/85">
                   正在刷新 {progress.done}/{progress.total}
                 </span>
@@ -1008,9 +983,9 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
                     className="shrink-0"
                   />
                 ) : activeCategory ? (
-                  <Folder size={15} className="shrink-0 text-fg/50" />
+                  <Folder size={16} className="shrink-0 text-fg/50" />
                 ) : (
-                  <Rss size={15} className="shrink-0 text-fg/50" />
+                  <Rss size={16} className="shrink-0 text-fg/50" />
                 )}
                 <span className="min-w-0 flex-1 truncate text-headline font-medium text-fg/85">
                   {switcherLabel}
@@ -1018,19 +993,20 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
               </>
             )}
             {switcherOpen ? (
-              <ChevronDown size={15} className="shrink-0 text-fg/50" />
+              <ChevronDown size={14} className="shrink-0 text-fg/50" />
             ) : (
-              <ChevronUp size={15} className="shrink-0 text-fg/50" />
+              <ChevronUp size={14} className="shrink-0 text-fg/50" />
             )}
           </button>
+          <span aria-hidden className="mx-1 h-4 w-px shrink-0 bg-border" />
           <IconButton title="发现" onClick={() => setDiscoverOpen(true)}>
-            <Compass size={15} />
+            <Compass size={16} />
           </IconButton>
           <IconButton title="搜索 (Ctrl+K)" onClick={() => setPaletteOpen(true)}>
-            <Search size={15} />
+            <Search size={16} />
           </IconButton>
           <IconButton title="设置" onClick={() => setSettingsOpen(true)}>
-            <SettingsIcon size={15} />
+            <SettingsIcon size={16} />
           </IconButton>
         </div>
       </div>

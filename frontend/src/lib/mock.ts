@@ -589,7 +589,6 @@ let settings: Settings = {
   timelineSortAsc: false,
   autoRefresh: true,
   contentFontSize: 16,
-  commentPaneWidth: 380,
   entryLayout: 'list',
 };
 

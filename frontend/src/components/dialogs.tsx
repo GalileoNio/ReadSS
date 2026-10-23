@@ -66,7 +66,7 @@ export function AddFeedDialog() {
   };
 
   return (
-    <Modal open={open} onClose={() => setOpen(false)} title="添加订阅" width={560}>
+    <Modal open={open} onClose={() => setOpen(false)} title="添加订阅">
       <div className="space-y-4 p-4">
         <Field label="网站或订阅源地址">
           <div className="flex gap-2">
@@ -233,7 +233,7 @@ export function SettingsDialog() {
   );
 
   return (
-    <Modal open={open} onClose={() => setOpen(false)} title="设置" width={620}>
+    <Modal open={open} onClose={() => setOpen(false)} title="设置">
       <div className="scrollbar-thin max-h-[65vh] overflow-y-auto px-4 py-2">
         {/* Appearance */}
         <h3 className="mt-2 text-callout font-bold uppercase tracking-wide text-fg/25">外观</h3>
@@ -369,12 +369,7 @@ export function SettingsDialog() {
             共 <strong className="text-fg/85">{counts.all}</strong> 篇文章，
             <strong className="text-fg/85">{counts.unread}</strong> 篇未读
           </p>
-          {info && (
-            <>
-              <p className="mt-1">版本 {info.version}</p>
-              <p className="mt-1 break-all">数据目录：{info.dataDir}</p>
-            </>
-          )}
+          {info && <p className="mt-1">版本 {info.version}</p>}
         </div>
       </div>
 
@@ -427,7 +422,7 @@ export function ShortcutsDialog() {
   const setOpen = useUI((s) => s.setShortcutsOpen);
 
   return (
-    <Modal open={open} onClose={() => setOpen(false)} title="键盘快捷键" width={640}>
+    <Modal open={open} onClose={() => setOpen(false)} title="键盘快捷键">
       <div className="scrollbar-thin max-h-[65vh] overflow-y-auto p-4">
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {SHORTCUT_GROUPS.map((group) => (

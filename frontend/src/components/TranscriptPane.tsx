@@ -23,12 +23,19 @@ import { findTranscriptSegment, useTranscript } from '../store/transcript';
 import { usePlayer } from '../store/player';
 import { cn } from '../lib/utils';
 
+const pill = 'inline-flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-callout font-medium transition-colors disabled:pointer-events-none disabled:opacity-40';
+const pillAccent = cn(pill, 'bg-accent text-white hover:bg-accent/90 active:bg-accent/80');
+const pillFill = cn(pill, 'bg-fill text-fg/85 hover:bg-item-hover');
+const pillGhost = cn(pill, 'text-fg/50 hover:bg-item-hover hover:text-fg/85');
+const field = 'h-[30px] w-full rounded border border-border bg-background px-2 text-callout text-fg/85 outline-none focus:border-accent/50';
+
+// Speaker hues distinguish voices; they are data colours, not brand colours.
 const speakerColors = [
-  ['bg-[#ffe9e8]', 'text-[#d93e36]'],
-  ['bg-[#e7f1ff]', 'text-[#326fca]'],
-  ['bg-[#e9f7ee]', 'text-[#268354]'],
-  ['bg-[#f4eaff]', 'text-[#8553bd]'],
-  ['bg-[#fff1da]', 'text-[#a66a13]'],
+  ['bg-sky-500/10', 'text-sky-600 dark:text-sky-400'],
+  ['bg-emerald-500/10', 'text-emerald-600 dark:text-emerald-400'],
+  ['bg-violet-500/10', 'text-violet-600 dark:text-violet-400'],
+  ['bg-amber-500/10', 'text-amber-600 dark:text-amber-400'],
+  ['bg-rose-500/10', 'text-rose-600 dark:text-rose-400'],
 ] as const;
 
 function colorFor(speakerId: string, speakers: TranscriptSpeaker[]) {
@@ -45,6 +52,14 @@ function speakerAvatar(transcript: Transcript, id: string) {
   if (index < 0) return '·';
   const name = transcript.speakers[index].name;
   return /^说话人\s*\d+$/.test(name) ? String(index + 1) : name.slice(0, 1);
+}
+
+function ProgressBar({ value }: { value: number }) {
+  return (
+    <div className="h-1 overflow-hidden rounded-full bg-fill">
+      <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${value}%` }} />
+    </div>
+  );
 }
 
 export function TranscriptPane({ entry }: { entry: Entry }) {
@@ -84,23 +99,16 @@ export function TranscriptPane({ entry }: { entry: Entry }) {
   if (!job || job.status === 'none') {
     return (
       <div className="flex min-h-[360px] flex-col items-center justify-center px-8 py-10 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#ff2442]/10 text-[#ff2442]">
-          <AudioLines size={25} />
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/10 text-accent">
+          <AudioLines size={20} />
         </div>
-        <h3 className="mt-4 text-[15px] font-semibold text-fg">分人字幕</h3>
-        <p className="mt-2 max-w-[270px] text-callout leading-relaxed text-fg/45">
-          优先读取节目自带文稿；没有文稿时，在本机识别音频并区分每位演讲人。
-        </p>
-        <button
-          type="button"
-          onClick={() => void generate(entry.id)}
-          className="mt-5 inline-flex h-10 items-center gap-2 rounded-full bg-[#ff2442] px-5 text-callout font-semibold text-white transition-transform active:scale-95"
-        >
-          <Sparkles size={15} />
+        <p className="mt-3 text-headline text-fg/50">暂无字幕</p>
+        <button type="button" onClick={() => void generate(entry.id)} className={cn(pillAccent, 'mt-4')}>
+          <Sparkles size={14} />
           获取字幕
         </button>
-        <button type="button" onClick={() => setSetup((v) => !v)} className="mt-3 text-footnote text-fg/40 hover:text-fg/70">
-          本机识别设置
+        <button type="button" onClick={() => setSetup((v) => !v)} className={cn(pillGhost, 'mt-1')}>
+          识别设置
         </button>
         {setup && <EngineSetup />}
       </div>
@@ -111,20 +119,16 @@ export function TranscriptPane({ entry }: { entry: Entry }) {
     if (job.status === 'queued' || job.status === 'running') {
       return (
         <div className="flex min-h-[360px] flex-col items-center justify-center px-8 py-10 text-center">
-          <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[#ff2442]/10 text-[#ff2442]">
-            <AudioLines size={25} />
-            <Loader2 size={62} className="absolute animate-spin opacity-35" strokeWidth={1.2} />
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/10 text-accent">
+            <Loader2 size={20} className="animate-spin" />
           </div>
-          <h3 className="mt-4 text-[15px] font-semibold text-fg">{job.stage}</h3>
-          <p className="mt-1 text-footnote tabular-nums text-fg/40">{job.progress}% · 可以继续收听</p>
-          <div className="mt-4 h-1.5 w-52 overflow-hidden rounded-full bg-fill">
-            <div className="h-full rounded-full bg-[#ff2442] transition-[width] duration-500" style={{ width: `${job.progress}%` }} />
+          <p className="mt-3 text-headline font-medium text-fg/85">{job.stage}</p>
+          <p className="mt-1 text-footnote tabular-nums text-fg/50">{job.progress}%</p>
+          <div className="mt-3 w-52">
+            <ProgressBar value={job.progress} />
           </div>
-          <p className="mt-4 max-w-[260px] text-footnote leading-relaxed text-fg/35">
-            语音识别完成后即可先阅读，随后自动区分演讲人并更新字幕。
-          </p>
-          <button type="button" onClick={() => void cancel(entry.id)} className="mt-4 inline-flex items-center gap-1.5 text-footnote text-fg/45 hover:text-fg/70">
-            <CircleStop size={13} />取消
+          <button type="button" onClick={() => void cancel(entry.id)} className={cn(pillGhost, 'mt-3')}>
+            <CircleStop size={14} />取消
           </button>
         </div>
       );
@@ -132,15 +136,16 @@ export function TranscriptPane({ entry }: { entry: Entry }) {
 
     return (
       <div className="flex min-h-[360px] flex-col items-center justify-center px-8 py-10 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-fill text-fg/40"><Cpu size={21} /></div>
-        <h3 className="mt-4 text-[15px] font-semibold text-fg">字幕没有生成</h3>
-        <p className="mt-2 max-w-[300px] break-words text-callout leading-relaxed text-fg/45">{job.error}</p>
-        <div className="mt-5 flex gap-2">
-          <button type="button" onClick={() => void generate(entry.id)} className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#ff2442] px-4 text-callout font-semibold text-white">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-fill text-fg/50">
+          <Cpu size={20} />
+        </div>
+        <p className="mt-3 text-headline text-fg/50" title={job.error}>字幕没有生成</p>
+        <div className="mt-4 flex gap-2">
+          <button type="button" onClick={() => void generate(entry.id)} className={pillAccent}>
             <RefreshCw size={14} />重试
           </button>
-          <button type="button" onClick={() => setSetup((v) => !v)} className="inline-flex h-9 items-center gap-1.5 rounded-full bg-fill px-4 text-callout text-fg/65">
-            <Settings2 size={14} />配置本机识别
+          <button type="button" onClick={() => setSetup((v) => !v)} className={pillFill}>
+            <Settings2 size={14} />识别设置
           </button>
         </div>
         {setup && <EngineSetup />}
@@ -150,58 +155,56 @@ export function TranscriptPane({ entry }: { entry: Entry }) {
 
   return (
     <div className="pb-4">
-      <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-background/95 px-5 py-2.5 backdrop-blur">
-        <UsersRound size={14} className="text-[#ff2442]" />
-        <span className="min-w-0 flex-1 truncate text-footnote text-fg/45">
+      <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-background/95 px-5 py-2 backdrop-blur">
+        <UsersRound size={14} className="text-accent" />
+        <span className="min-w-0 flex-1 truncate text-footnote text-fg/50">
           {transcript.speakers.length > 0 ? `${transcript.speakers.length} 位演讲人` : '字幕'} · {transcript.source === 'feed' ? '节目文稿' : '本机识别'}
         </span>
-        <button type="button" title="重新生成本机字幕" onClick={() => void generate(entry.id, true)} className="icon-btn !h-7 !w-7 text-fg/35 hover:text-fg/65">
-          <RefreshCw size={13} />
+        <button type="button" title="重新生成" onClick={() => void generate(entry.id, true)} className="icon-btn">
+          <RefreshCw size={14} />
         </button>
-        <button type="button" title="本机识别设置" onClick={() => setSetup((v) => !v)} className={cn('icon-btn !h-7 !w-7', setup ? 'text-[#ff2442]' : 'text-fg/35 hover:text-fg/65')}>
-          <Settings2 size={13} />
+        <button type="button" title="识别设置" onClick={() => setSetup((v) => !v)} className={cn('icon-btn', setup && '!text-accent')}>
+          <Settings2 size={14} />
         </button>
       </div>
 
       {setup && (
-        <div className="flex justify-center border-b border-border bg-fill/25 px-5 py-4">
+        <div className="flex justify-center border-b border-border bg-fill/25 px-5 pb-4">
           <EngineSetup />
         </div>
       )}
 
       {job.status === 'running' && (
-        <div className="border-b border-border bg-[#ff2442]/[0.04] px-5 py-2.5">
-          <div className="flex items-center gap-2">
-            <Loader2 size={12} className="shrink-0 animate-spin text-[#ff2442]" />
-            <span className="min-w-0 flex-1 truncate text-footnote text-fg/55">{job.stage} · 字幕已可先阅读</span>
-            <span className="text-[10px] tabular-nums text-fg/35">{job.progress}%</span>
-            <button type="button" onClick={() => void cancel(entry.id)} className="inline-flex shrink-0 items-center gap-1 text-[10px] text-fg/40 hover:text-fg/70">
-              <CircleStop size={11} />取消
+        <div className="border-b border-border px-5 py-2.5">
+          <div className="mb-1.5 flex items-center gap-2">
+            <Loader2 size={14} className="shrink-0 animate-spin text-accent" />
+            <span className="min-w-0 flex-1 truncate text-footnote text-fg/50">{job.stage}</span>
+            <span className="text-footnote tabular-nums text-fg/50">{job.progress}%</span>
+            <button type="button" title="取消" onClick={() => void cancel(entry.id)} className="icon-btn !h-6 !w-6">
+              <CircleStop size={14} />
             </button>
           </div>
-          <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-fill">
-            <div className="h-full rounded-full bg-[#ff2442] transition-[width] duration-500" style={{ width: `${job.progress}%` }} />
-          </div>
+          <ProgressBar value={job.progress} />
         </div>
       )}
 
       {job.status === 'error' && (
-        <div className="flex items-center gap-2 border-b border-border bg-red-500/[0.05] px-5 py-2.5">
-          <span className="min-w-0 flex-1 truncate text-footnote text-red-600/80">{job.error || '说话人分离没有完成'}</span>
-          <button type="button" onClick={() => void generate(entry.id, true)} className="inline-flex shrink-0 items-center gap-1 text-[10px] font-medium text-red-600/80 hover:text-red-600">
-            <RefreshCw size={11} />重新分离
+        <div className="flex items-center gap-2 border-b border-border bg-red-500/[0.05] px-5 py-2">
+          <span className="min-w-0 flex-1 truncate text-footnote text-red-600/85 dark:text-red-400/85" title={job.error}>说话人分离没有完成</span>
+          <button type="button" onClick={() => void generate(entry.id, true)} className="inline-flex shrink-0 items-center gap-1 text-footnote font-medium text-red-600/85 hover:text-red-600 dark:text-red-400/85">
+            <RefreshCw size={12} />重试
           </button>
         </div>
       )}
 
       {transcript.speakers.length > 0 && (
-        <div className="flex flex-wrap gap-2 border-b border-border px-5 py-3">
+        <div className="flex flex-wrap gap-1.5 border-b border-border px-5 py-3">
           {transcript.speakers.map((speaker) => {
             const [bg, fg] = colorFor(speaker.id, transcript.speakers);
             return renaming === speaker.id ? (
               <form
                 key={speaker.id}
-                className="flex h-8 items-center gap-1 rounded-full border border-[#ff2442]/30 bg-background pl-2 pr-1"
+                className="flex h-6 items-center gap-1 rounded-full border border-accent/40 bg-background pl-2 pr-0.5"
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (name.trim()) void useTranscript.getState().renameSpeaker(entry.id, speaker.id, name.trim());
@@ -209,17 +212,17 @@ export function TranscriptPane({ entry }: { entry: Entry }) {
                 }}
               >
                 <input autoFocus value={name} onChange={(e) => setName(e.target.value)} className="w-20 bg-transparent text-footnote outline-none" maxLength={32} />
-                <button type="submit" className="flex h-6 w-6 items-center justify-center rounded-full text-[#ff2442]"><Check size={12} /></button>
+                <button type="submit" className="flex h-5 w-5 items-center justify-center rounded-full text-accent"><Check size={12} /></button>
               </form>
             ) : (
               <button
                 key={speaker.id}
                 type="button"
-                title="修改演讲人名称"
+                title="修改名称"
                 onClick={() => { setRenaming(speaker.id); setName(speaker.name); }}
-                className={cn('group inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-footnote font-medium', bg, fg)}
+                className={cn('group inline-flex h-6 items-center gap-1 rounded-full px-2.5 text-footnote font-medium', bg, fg)}
               >
-                <UserRound size={12} />{speaker.name}<Pencil size={10} className="opacity-0 transition-opacity group-hover:opacity-60" />
+                <UserRound size={12} />{speaker.name}<Pencil size={12} className="opacity-0 transition-opacity group-hover:opacity-60" />
               </button>
             );
           })}
@@ -239,21 +242,21 @@ export function TranscriptPane({ entry }: { entry: Entry }) {
               type="button"
               onClick={() => jump(segment.start)}
               className={cn(
-                'group flex w-full gap-3 rounded-xl px-3 py-2.5 text-left transition-colors',
-                isActive ? 'bg-[#ff2442]/[0.075]' : 'hover:bg-fill/60',
+                'group flex w-full gap-3 rounded-card px-3 py-2.5 text-left transition-colors',
+                isActive ? 'bg-accent/[0.06]' : 'hover:bg-item-hover',
                 showSpeaker && index > 0 && 'mt-2',
               )}
             >
-              <span className={cn('mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold', segment.speaker ? `${bg} ${fg}` : 'bg-fill text-fg/35')}>
+              <span className={cn('mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-footnote font-semibold', segment.speaker ? `${bg} ${fg}` : 'bg-fill text-fg/50')}>
                 {speakerAvatar(transcript, segment.speaker)}
               </span>
               <span className="min-w-0 flex-1">
                 {showSpeaker && <span className={cn('mb-0.5 block text-footnote font-medium', fg)}>{speakerName(transcript, segment.speaker)}</span>}
-                <span className={cn('block text-callout leading-[1.65]', isActive ? 'font-medium text-fg' : 'text-fg/72')}>
+                <span className={cn('block text-callout leading-[1.65] text-fg/85', isActive && 'font-medium')}>
                   {segment.text}
                 </span>
-                <span className="mt-1 flex items-center gap-1 text-[10px] tabular-nums text-fg/28 transition-colors group-hover:text-fg/45">
-                  {isActive && playing && currentEntry ? <AudioLines size={10} className="text-[#ff2442]" /> : <Play size={9} />}
+                <span className={cn('mt-1 flex items-center gap-1 text-footnote tabular-nums transition-colors', isActive ? 'text-accent' : 'text-fg/25 group-hover:text-fg/50')}>
+                  {isActive && playing && currentEntry ? <AudioLines size={12} /> : <Play size={12} />}
                   {formatClock(segment.start)}
                 </span>
               </span>
@@ -261,29 +264,18 @@ export function TranscriptPane({ entry }: { entry: Entry }) {
           );
         })}
       </div>
-
-      <p className="px-5 pt-2 text-[10px] leading-relaxed text-fg/28">{transcript.engine}</p>
     </div>
   );
 }
 
-export function PlayerCaption({ entry }: { entry: Entry }) {
-  const job = useTranscript((s) => s.jobs[entry.id]);
-  const load = useTranscript((s) => s.load);
-  const position = usePlayer((s) => s.entry?.id === entry.id ? s.position : 0);
-  const current = findTranscriptSegment(job?.transcript, position);
-
-  useEffect(() => { void load(entry.id); }, [entry.id, load]);
-  if (!current || !job?.transcript) return null;
-
-  const name = speakerName(job.transcript, current.segment.speaker);
-  return (
-    <div className="flex min-w-0 items-center gap-1.5 px-3 pb-1 text-[11px] leading-tight">
-      {current.segment.speaker && <span className="shrink-0 font-medium text-[#ff2442]">{name}</span>}
-      <span className="truncate text-fg/60">{current.segment.text}</span>
-    </div>
-  );
-}
+const FIELD_LABELS: Array<[keyof TranscribeConfig, string, string]> = [
+  ['ffmpeg', '音频解码', 'ffmpeg.exe'],
+  ['whisper', '语音识别', 'whisper-cli.exe'],
+  ['whisperModel', '识别模型', 'ggml-large-v3-turbo.bin'],
+  ['diarizer', '说话人分离', 'sherpa-onnx-offline-speaker-diarization.exe'],
+  ['segmentationModel', '分段模型', 'model.onnx'],
+  ['embeddingModel', '声纹模型', 'model.onnx'],
+];
 
 function EngineSetup() {
   const engine = useTranscript((s) => s.engine);
@@ -302,103 +294,90 @@ function EngineSetup() {
   useEffect(() => { void Promise.all([loadEngine(), loadModels()]); }, [loadEngine, loadModels]);
   useEffect(() => { if (engine) setDraft(engine.config); }, [engine]);
 
-  if (!engine || !draft) return <Loader2 size={17} className="mt-5 animate-spin text-fg/30" />;
+  if (!engine || !draft) return <Loader2 size={14} className="mt-5 animate-spin text-fg/25" />;
 
   const update = (key: keyof TranscribeConfig, value: string | number) => setDraft({ ...draft, [key]: value });
-  const fields: Array<[keyof TranscribeConfig, string, string]> = [
-    ['ffmpeg', 'FFmpeg', 'ffmpeg.exe'],
-    ['whisper', 'Whisper', 'whisper-cli.exe'],
-    ['whisperModel', 'Whisper 模型', 'ggml-large-v3-turbo.bin'],
-    ['diarizer', '说话人分离', 'sherpa-onnx-offline-speaker-diarization.exe'],
-    ['segmentationModel', '分段模型', 'sherpa-onnx-pyannote-segmentation-3-0/model.onnx'],
-    ['embeddingModel', '声纹模型', '3dspeaker_speech_eres2net_base_sv_zh-cn/model.onnx'],
-  ];
 
   return (
-    <div className="mt-5 w-full max-w-[340px] rounded-2xl border border-border bg-fill/25 p-4 text-left">
-      <div className="flex items-start gap-2.5">
-        <Cpu size={17} className="mt-0.5 shrink-0 text-[#ff2442]" />
-        <div className="min-w-0 flex-1">
-          <p className="text-callout font-semibold text-fg">本机识别引擎</p>
-          <p className="mt-1 break-all text-[10px] leading-relaxed text-fg/35">把程序和模型放入 {engine.dir}，可以保留解压后的文件夹结构。</p>
-        </div>
+    <div className="mt-4 w-full max-w-[340px] rounded-panel border border-border bg-background p-4 text-left">
+      <div className="flex items-center gap-2">
+        <Cpu size={16} className="shrink-0 text-accent" />
+        <p className="flex-1 text-headline font-semibold text-fg/85">本机识别</p>
+        <button type="button" disabled={loading} title="重新检测" onClick={() => void loadEngine()} className="icon-btn !h-6 !w-6">
+          <RefreshCw size={14} className={cn(loading && 'animate-spin')} />
+        </button>
       </div>
-      <div className="mt-3 flex flex-wrap gap-1.5 text-[10px]">
-        <span className={cn('rounded-full px-2 py-1', engine.ready ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600')}>
-          {engine.ready ? '语音识别已就绪' : `缺少 ${engine.missing.join('、')}`}
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        <span
+          title={engine.ready ? undefined : engine.missing.join('、')}
+          className={cn('chip', engine.ready ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400')}
+        >
+          {engine.ready ? '语音识别已就绪' : '语音识别未就绪'}
         </span>
-        <span className={cn('rounded-full px-2 py-1', engine.canDiarize ? 'bg-emerald-500/10 text-emerald-600' : 'bg-fill text-fg/40')}>
+        <span className={cn('chip', engine.canDiarize ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-fill text-fg/50')}>
           {engine.canDiarize ? '说话人分离已就绪' : '说话人分离未配置'}
         </span>
       </div>
 
-      <div className="mt-4 border-t border-border pt-3">
-        <div className="flex items-end justify-between">
-          <p className="text-footnote font-medium text-fg/70">识别模型</p>
-          <span className="text-[10px] text-fg/30">越大越准，也越慢</span>
-        </div>
-        <div className="mt-2 space-y-2">
-          {models.map((model) => {
-            const downloading = modelDownload?.status === 'running' && modelDownload.modelId === model.id;
-            const blocked = modelDownload?.status === 'running' && !downloading;
-            const failed = modelDownload?.status === 'error' && modelDownload.modelId === model.id;
-            return (
-              <div key={model.id} className={cn('rounded-xl border px-3 py-2.5', model.active ? 'border-[#ff2442]/25 bg-[#ff2442]/[0.035]' : 'border-border bg-background/55')}>
-                <div className="flex items-center gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-medium text-fg/75">{model.name}</span>
-                      <span className="text-[9px] text-fg/30">{Math.round(model.size / 1024 / 1024)} MB</span>
-                    </div>
-                    <p className="mt-0.5 text-[10px] text-fg/35">{model.description}</p>
+      <p className="mb-2 mt-4 text-footnote font-medium text-fg/50">识别模型</p>
+      <div className="space-y-1.5">
+        {models.map((model) => {
+          const downloading = modelDownload?.status === 'running' && modelDownload.modelId === model.id;
+          const blocked = modelDownload?.status === 'running' && !downloading;
+          const failed = modelDownload?.status === 'error' && modelDownload.modelId === model.id;
+          return (
+            <div key={model.id} className={cn('rounded-card border px-3 py-2.5', model.active ? 'border-accent/30 bg-accent/[0.04]' : 'border-border')}>
+              <div className="flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-callout font-medium text-fg/85">{model.name}</span>
+                    <span className="text-footnote tabular-nums text-fg/25">{Math.round(model.size / 1024 / 1024)} MB</span>
                   </div>
-                  {model.active ? (
-                    <span className="inline-flex h-7 items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 text-[10px] font-medium text-emerald-600"><Check size={11} />使用中</span>
-                  ) : model.installed ? (
-                    <button type="button" disabled={loading || blocked} onClick={() => void selectModel(model.id)} className="h-7 rounded-full bg-fill px-2.5 text-[10px] font-medium text-fg/60 disabled:opacity-40">使用</button>
-                  ) : downloading ? (
-                    <button type="button" onClick={() => void cancelModelDownload()} className="inline-flex h-7 items-center gap-1 rounded-full bg-fill px-2.5 text-[10px] text-fg/55"><CircleStop size={11} />取消</button>
-                  ) : (
-                    <button type="button" disabled={blocked} onClick={() => void downloadModel(model.id)} className="inline-flex h-7 items-center gap-1 rounded-full bg-[#ff2442] px-2.5 text-[10px] font-medium text-white disabled:opacity-40"><Download size={11} />下载</button>
-                  )}
+                  <p className="mt-0.5 text-footnote text-fg/50">{model.description}</p>
                 </div>
-                {downloading && (
-                  <div className="mt-2">
-                    <div className="h-1 overflow-hidden rounded-full bg-fill">
-                      <div className="h-full rounded-full bg-[#ff2442] transition-[width]" style={{ width: `${modelDownload?.progress ?? 0}%` }} />
-                    </div>
-                    <p className="mt-1 text-right text-[9px] tabular-nums text-fg/30">{modelDownload?.progress ?? 0}%</p>
-                  </div>
+                {model.active ? (
+                  <span className="inline-flex h-7 items-center gap-1 px-1 text-footnote font-medium text-accent"><Check size={12} />使用中</span>
+                ) : model.installed ? (
+                  <button type="button" disabled={loading || blocked} onClick={() => void selectModel(model.id)} className={pillFill}>使用</button>
+                ) : downloading ? (
+                  <button type="button" onClick={() => void cancelModelDownload()} className={pillFill}><CircleStop size={12} />取消</button>
+                ) : (
+                  <button type="button" disabled={blocked} onClick={() => void downloadModel(model.id)} className={pillAccent}><Download size={12} />下载</button>
                 )}
-                {failed && <p className="mt-1.5 break-words text-[9px] leading-relaxed text-red-500/80">{modelDownload?.error}</p>}
               </div>
-            );
-          })}
-        </div>
+              {downloading && (
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="flex-1"><ProgressBar value={modelDownload?.progress ?? 0} /></div>
+                  <span className="text-footnote tabular-nums text-fg/50">{modelDownload?.progress ?? 0}%</span>
+                </div>
+              )}
+              {failed && <p className="mt-1.5 text-footnote text-red-600/85 dark:text-red-400/85" title={modelDownload?.error}>下载没有完成</p>}
+            </div>
+          );
+        })}
       </div>
 
-      <button type="button" onClick={() => setAdvanced((v) => !v)} className="mt-3 flex w-full items-center justify-between text-footnote text-fg/50">
-        手动指定路径 {advanced ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+      <button type="button" onClick={() => setAdvanced((v) => !v)} className="mt-3 flex w-full items-center justify-between py-1 text-footnote text-fg/50 hover:text-fg/85">
+        高级 {advanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
       </button>
       {advanced && (
-        <div className="mt-3 space-y-2">
-          {fields.map(([key, label, placeholder]) => (
+        <div className="mt-2 space-y-2">
+          {FIELD_LABELS.map(([key, label, placeholder]) => (
             <label key={key} className="block">
-              <span className="mb-1 block text-[10px] text-fg/40">{label}</span>
-              <input value={String(draft[key])} placeholder={placeholder} onChange={(e) => update(key, e.target.value)} className="h-8 w-full rounded-lg border border-border bg-background px-2 text-[11px] outline-none focus:border-[#ff2442]/50" />
+              <span className="mb-1 block text-footnote text-fg/50">{label}</span>
+              <input value={String(draft[key])} placeholder={placeholder} onChange={(e) => update(key, e.target.value)} className={field} />
             </label>
           ))}
           <div className="grid grid-cols-3 gap-2">
-            <label className="block"><span className="mb-1 block text-[10px] text-fg/40">语言</span><input value={draft.language} onChange={(e) => update('language', e.target.value)} className="h-8 w-full rounded-lg border border-border bg-background px-2 text-[11px] outline-none" /></label>
-            <label className="block"><span className="mb-1 block text-[10px] text-fg/40">人数（0 自动）</span><input type="number" min={0} max={20} value={draft.speakers} onChange={(e) => update('speakers', Number(e.target.value))} className="h-8 w-full rounded-lg border border-border bg-background px-2 text-[11px] outline-none" /></label>
-            <label className="block"><span className="mb-1 block text-[10px] text-fg/40">线程</span><input type="number" min={1} max={64} value={draft.threads} onChange={(e) => update('threads', Number(e.target.value))} className="h-8 w-full rounded-lg border border-border bg-background px-2 text-[11px] outline-none" /></label>
+            <label className="block"><span className="mb-1 block text-footnote text-fg/50">语言</span><input value={draft.language} onChange={(e) => update('language', e.target.value)} className={field} /></label>
+            <label className="block"><span className="mb-1 block text-footnote text-fg/50">人数</span><input type="number" min={0} max={20} placeholder="自动" value={draft.speakers} onChange={(e) => update('speakers', Number(e.target.value))} className={field} /></label>
+            <label className="block"><span className="mb-1 block text-footnote text-fg/50">线程</span><input type="number" min={1} max={64} value={draft.threads} onChange={(e) => update('threads', Number(e.target.value))} className={field} /></label>
+          </div>
+          <div className="flex justify-end pt-1">
+            <button type="button" disabled={loading} onClick={() => void saveEngine(draft)} className={pillAccent}>保存</button>
           </div>
         </div>
       )}
-      <div className="mt-3 flex justify-end gap-2">
-        <button type="button" disabled={loading} onClick={() => void loadEngine()} className="h-8 rounded-full px-3 text-footnote text-fg/50 hover:bg-fill">重新检测</button>
-        {advanced && <button type="button" disabled={loading} onClick={() => void saveEngine(draft)} className="h-8 rounded-full bg-[#ff2442] px-3 text-footnote font-medium text-white disabled:opacity-50">保存</button>}
-      </div>
     </div>
   );
 }

@@ -114,8 +114,6 @@ export interface Settings {
   timelineSortAsc: boolean;
   autoRefresh: boolean;
   contentFontSize: number;
-  /** Width of the comments column, in CSS pixels. */
-  commentPaneWidth: number;
   /** How the article list is presented: rows, or a two-column waterfall. */
   entryLayout: 'list' | 'masonry';
 }

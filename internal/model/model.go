@@ -176,10 +176,6 @@ type Settings struct {
 	TimelineSortAsc    bool   `json:"timelineSortAsc"`
 	AutoRefresh        bool   `json:"autoRefresh"`
 	ContentFontSize    int    `json:"contentFontSize"`
-	// CommentPaneWidth is the width of the comments column, in CSS pixels. The
-	// column is docked to the right of the reader, so its size is a user
-	// preference rather than something derived from the content.
-	CommentPaneWidth int `json:"commentPaneWidth"`
 	// EntryLayout is how the article list is presented: "list" (rows) or
 	// "masonry" (a two-column waterfall of cards).
 	EntryLayout string `json:"entryLayout"`
@@ -201,7 +197,6 @@ func DefaultSettings() Settings {
 		TimelineSortAsc:    false,
 		AutoRefresh:        true,
 		ContentFontSize:    16,
-		CommentPaneWidth:   380,
 		EntryLayout:        "list",
 	}
 }

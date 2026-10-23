@@ -22,10 +22,14 @@ export default {
         'item-hover': 'var(--fo-item-hover)',
         'item-active': 'var(--fo-item-active)',
       },
+      // Radius by role (DESIGN-REVIEW §3.1): control 8 / card 10 / panel 12.
       borderRadius: {
-        DEFAULT: '0.5rem',
-        lg: '0.625rem',
-        xl: '0.75rem',
+        DEFAULT: 'var(--r-control)',
+        lg: 'var(--r-card)',
+        xl: 'var(--r-panel)',
+        control: 'var(--r-control)',
+        card: 'var(--r-card)',
+        panel: 'var(--r-panel)',
       },
       fontFamily: {
         sans: [
@@ -54,10 +58,17 @@ export default {
         callout: ['12px', '15px'],
         subheadline: ['11px', '14px'],
         footnote: ['10px', '13px'],
+        read: ['15px', '1.75'],
       },
       spacing: {
         feedcol: 'var(--fo-feed-col-w)',
         entrycol: 'var(--fo-entry-col-w)',
+        header: 'var(--h-header)',
+        rail: 'var(--w-rail)',
+        col: 'var(--w-col)',
+        dialog: 'var(--w-dialog)',
+        modal: 'var(--modal-w)',
+        'modal-h': 'var(--modal-h)',
       },
       transitionTimingFunction: {
         folo: 'cubic-bezier(.16,1,.3,1)',

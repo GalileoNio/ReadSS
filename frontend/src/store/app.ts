@@ -135,9 +135,7 @@ export const useApp = create<AppState>((set, get) => ({
     timelineSortAsc: false,
     autoRefresh: true,
     contentFontSize: 16,
-  // Tall enough for a couple of comments, small enough to leave the article readable.
-  commentPaneWidth: 380,
-  entryLayout: 'list',
+    entryLayout: 'list',
   },
 
   selection: { scope: 'all', feedId: 0, categoryId: 0, view: 'all' },

@@ -7,7 +7,7 @@ import { useApp } from '../store/app';
 import { useUI } from '../store/ui';
 import { cardRatio, cn, detailOriginOf, relativeTime } from '../lib/utils';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
-import { CardImage, FeedIcon, IconButton, proxiedImageURL, Spinner } from './primitives';
+import { CardImage, FeedIcon, IconButton, MasonryGrid, proxiedImageURL, Spinner } from './primitives';
 
 /**
  * Discover pane: what the reader may want to read next, and which feeds and
@@ -135,16 +135,16 @@ export function DiscoverPane({ mobileFullWidth = false }: { mobileFullWidth?: bo
         mobileFullWidth && 'w-full',
       )}
     >
-      <header className="flex h-[53px] shrink-0 items-center gap-2 border-b border-border px-4 pt-2">
-        <h2 className="flex min-w-0 flex-1 items-center gap-1.5 text-lg font-bold leading-tight text-fg">
-          <Compass size={18} className="shrink-0 text-accent" />
+      <header className="flex h-header shrink-0 items-center gap-2 border-b border-border px-4 pt-2">
+        <h2 className="flex min-w-0 flex-1 items-center gap-1.5 text-title2 font-bold text-fg/85">
+          <Compass size={20} className="shrink-0 text-accent" />
           发现
         </h2>
         <IconButton title="刷新推荐" disabled={loading} onClick={() => void load()}>
-          {loading ? <Spinner size={14} /> : <RefreshCw size={15} />}
+          {loading ? <Spinner size={14} /> : <RefreshCw size={14} />}
         </IconButton>
         <IconButton title="返回文章列表" onClick={() => setDiscoverOpen(false)}>
-          <X size={15} />
+          <X size={14} />
         </IconButton>
       </header>
 
@@ -160,7 +160,7 @@ export function DiscoverPane({ mobileFullWidth = false }: { mobileFullWidth?: bo
         >
           {pull.refreshing ? (
             <>
-              <Spinner size={13} className="mr-2" />
+              <Spinner size={14} className="mr-2" />
               正在刷新推荐…
             </>
           ) : pull.pull >= pull.threshold ? (
@@ -185,7 +185,7 @@ export function DiscoverPane({ mobileFullWidth = false }: { mobileFullWidth?: bo
                   <div className="flex min-w-0 items-center gap-2">
                     <FeedIcon title={s.title} iconUrl="" size={28} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-headline font-semibold text-fg">{s.title}</p>
+                      <p className="truncate text-headline font-semibold text-fg/85">{s.title}</p>
                       <p className="truncate text-footnote text-fg/50">
                         {s.tags.slice(0, 2).join(' · ')}
                       </p>
@@ -213,9 +213,9 @@ export function DiscoverPane({ mobileFullWidth = false }: { mobileFullWidth?: bo
             type="button"
             disabled={podcastLoading}
             onClick={() => void loadPodcasts()}
-            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-footnote text-fg/50 transition-colors hover:bg-fill hover:text-fg disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-footnote text-fg/50 transition-colors hover:bg-item-hover hover:text-fg/85 disabled:opacity-40"
           >
-            {podcastLoading ? <Spinner size={11} /> : <RefreshCw size={11} />}
+            {podcastLoading ? <Spinner size={12} /> : <RefreshCw size={12} />}
             换一批
           </button>
         </div>
@@ -259,7 +259,7 @@ export function DiscoverPane({ mobileFullWidth = false }: { mobileFullWidth?: bo
                   <FeedIcon title={p.title} iconUrl="" size={64} className="shrink-0" />
                 )}
                 <div className="flex min-w-0 flex-1 flex-col">
-                  <p className="truncate text-headline font-semibold text-fg" title={p.title}>
+                  <p className="truncate text-headline font-semibold text-fg/85" title={p.title}>
                     {p.title}
                   </p>
                   <p className="truncate text-footnote text-fg/50">
@@ -295,23 +295,25 @@ export function DiscoverPane({ mobileFullWidth = false }: { mobileFullWidth?: bo
           为你推荐
         </h3>
         {loading && visibleArticles.length === 0 ? (
-          <div className="columns-2 gap-3 min-[640px]:columns-3 min-[900px]:columns-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="mb-3 break-inside-avoid">
-                <div className="skeleton h-40 rounded-lg" />
+          <MasonryGrid
+            items={[0, 1, 2, 3, 4, 5]}
+            getKey={(i) => i}
+            renderItem={(i) => (
+              <div>
+                <div className="skeleton rounded-lg" style={{ aspectRatio: cardRatio(i) }} />
                 <div className="skeleton mt-2 h-3 w-4/5 rounded" />
               </div>
-            ))}
-          </div>
+            )}
+          />
         ) : visibleArticles.length === 0 ? (
           <p className="py-10 text-center text-callout text-fg/50">暂时没有可推荐的文章</p>
         ) : (
-          <div className="columns-2 gap-3 [column-fill:balance] min-[640px]:columns-3 min-[900px]:columns-4">
-            {visibleArticles.map((entry) => (
+          <MasonryGrid
+            items={visibleArticles}
+            getKey={(entry) => entry.id}
+            renderItem={(entry) => (
               <div
-                key={entry.id}
                 className={cn(
-                  'mb-3 break-inside-avoid',
                   // The card becomes the modal while it is open: blank slot,
                   // no reflow (DESIGN.md §7.11).
                   entry.id === openedId && 'invisible',
@@ -338,22 +340,22 @@ export function DiscoverPane({ mobileFullWidth = false }: { mobileFullWidth?: bo
                     color={feeds.find((f) => f.id === entry.feedId)?.color}
                     title={entry.title}
                     fallback={
-                      <FeedIcon title={entry.feedTitle} iconUrl={entry.feedIcon} size={22} />
+                      <FeedIcon title={entry.feedTitle} iconUrl={entry.feedIcon} size={24} />
                     }
                   />
                   <div className="p-2">
                     {entry.imageUrl && (
-                      <h4 className="line-clamp-3 break-words text-headline font-medium leading-snug text-fg">
+                      <h4 className="line-clamp-3 break-words text-headline font-medium leading-snug text-fg/85">
                         {entry.title}
                       </h4>
                     )}
                     <div
                       className={cn(
-                        'flex min-w-0 items-center gap-1 text-[10px] font-bold text-fg/50',
+                        'flex min-w-0 items-center gap-1 text-footnote text-fg/50',
                         entry.imageUrl ? 'mt-1.5' : 'mt-0.5',
                       )}
                     >
-                      <FeedIcon title={entry.feedTitle} iconUrl={entry.feedIcon} size={12} />
+                      <FeedIcon title={entry.feedTitle} iconUrl={entry.feedIcon} size={16} />
                       <span className="truncate">{entry.feedTitle}</span>
                       <span aria-hidden>·</span>
                       <span className="shrink-0 tabular-nums">
@@ -363,8 +365,8 @@ export function DiscoverPane({ mobileFullWidth = false }: { mobileFullWidth?: bo
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
+            )}
+          />
         )}
       </div>
     </section>
@@ -394,24 +396,24 @@ function FollowButton({
         'group/follow inline-flex h-7 min-w-[72px] items-center justify-center gap-1 rounded-full px-3',
         'text-callout font-medium transition-colors disabled:opacity-60',
         following
-          ? 'bg-fill text-fg/50 hover:bg-item-hover hover:text-fg/70'
+          ? 'bg-fill text-fg/50 hover:bg-item-hover hover:text-fg/85'
           : 'bg-accent text-white hover:bg-accent/90',
         className,
       )}
     >
       {busy ? (
-        <Spinner size={12} />
+        <Spinner size={14} />
       ) : following ? (
         <>
           <span className="inline-flex items-center gap-1 group-hover/follow:hidden">
-            <Check size={13} />
+            <Check size={14} />
             已订阅
           </span>
           <span className="hidden group-hover/follow:inline">取消订阅</span>
         </>
       ) : (
         <>
-          <Plus size={13} />
+          <Plus size={14} />
           订阅
         </>
       )}

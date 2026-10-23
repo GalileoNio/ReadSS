@@ -48,7 +48,7 @@ export function ContextMenu() {
     <div
       ref={ref}
       style={{ left: pos.x, top: pos.y, width: MENU_WIDTH }}
-      className="fixed z-[60] animate-scale-in rounded-lg border border-border bg-background p-1 shadow-pop"
+      className="fixed z-[60] animate-scale-in rounded-panel border border-border bg-background p-1 shadow-pop"
       onClick={(e) => e.stopPropagation()}
     >
       {menu.items.map((item, i) => (
@@ -110,7 +110,7 @@ export function Toasts() {
           <div
             key={toast.id}
             className={cn(
-              'pointer-events-auto animate-slide-up rounded-lg border border-border px-3 py-2.5',
+              'pointer-events-auto animate-slide-up rounded-panel border border-border px-3 py-2.5',
               'bg-background/95 shadow-pop backdrop-blur-md',
             )}
           >
