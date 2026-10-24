@@ -518,6 +518,21 @@ func (f *Fetcher) FetchComments(ctx context.Context, pageURL string) (string, in
 	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 
+	// Bilibili video pages are client-rendered, so the generic HTML/API
+	// discovery below would always come up empty. Read the thread from the
+	// platform's own reply API instead.
+	if bvid, aid := bilibiliVideoRef(pageURL); bvid != "" || aid > 0 {
+		htmlText, count, err := f.fetchBilibiliComments(ctx, parsed)
+		if err != nil {
+			f.logf("bilibili comments failed", "url", pageURL, "err", err.Error())
+			return "", 0, err
+		}
+		if count == 0 {
+			return "", 0, nil
+		}
+		return f.InlineCommentImages(ctx, htmlText, pageURL), count, nil
+	}
+
 	status, _, body, err := f.fetchBody(ctx, pageURL, func(ctx context.Context) (*http.Request, error) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, pageURL, nil)
 		if err != nil {

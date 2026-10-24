@@ -152,6 +152,16 @@ type FetchResult struct {
 // Fetch retrieves and parses a feed, sending conditional headers when the
 // caller supplies validators from a previous request.
 func (f *Fetcher) Fetch(ctx context.Context, feedURL, etag, lastModified string) (*FetchResult, error) {
+	// Bilibili has no RSS: a stored space URL is read through its API instead.
+	if mid := bilibiliSpaceID(feedURL); mid != "" {
+		return f.fetchBilibiliSpace(ctx, feedURL, mid)
+	}
+	// Channel pages can arrive through OPML or an older build; normalise them
+	// to the native RSS address the rest of the pipeline expects.
+	if channelID := youtubeChannelIDFromURL(feedURL); channelID != "" && !isYouTubeFeedURL(feedURL) {
+		feedURL = youtubeFeedURL(channelID)
+	}
+
 	// Conditional headers are rebuilt per attempt, so a retry after a stall
 	// still asks "has this changed since I last saw it".
 	status, header, body, err := f.fetchBody(ctx, feedURL, func(ctx context.Context) (*http.Request, error) {
@@ -189,7 +199,11 @@ func (f *Fetcher) Fetch(ctx context.Context, feedURL, etag, lastModified string)
 		return nil, fmt.Errorf("无法解析订阅源内容")
 	}
 
-	return f.normalize(parsed, feedURL, header.Get("ETag"), header.Get("Last-Modified")), nil
+	result := f.normalize(parsed, feedURL, header.Get("ETag"), header.Get("Last-Modified"))
+	if isYouTubeFeedURL(feedURL) {
+		enrichYouTubeMedia(body, result)
+	}
+	return result, nil
 }
 
 // ParseBytes parses feed bytes that the caller already has. It shares the
@@ -200,7 +214,11 @@ func (f *Fetcher) ParseBytes(body []byte, feedURL string) (*FetchResult, error) 
 	if err != nil {
 		return nil, fmt.Errorf("无法解析订阅源内容")
 	}
-	return f.normalize(parsed, feedURL, "", ""), nil
+	result := f.normalize(parsed, feedURL, "", "")
+	if isYouTubeFeedURL(feedURL) {
+		enrichYouTubeMedia(body, result)
+	}
+	return result, nil
 }
 
 // normalize converts a gofeed feed into the app's own shape.
@@ -469,6 +487,11 @@ func (f *Fetcher) Discover(ctx context.Context, raw string) ([]model.DiscoveredF
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return nil, errors.New("请输入网站或订阅源地址")
+	}
+	// A username, UID, channel URL or single video is resolved by the video
+	// platform itself; a plain website continues through generic discovery.
+	if candidates, handled, err := f.resolveVideoDiscovery(ctx, raw); handled {
+		return candidates, err
 	}
 	if !strings.Contains(raw, "://") {
 		raw = "https://" + raw

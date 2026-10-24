@@ -23,6 +23,8 @@ import type {
   PodcastSuggestion,
   RefreshResult,
   Settings,
+  VideoChannel,
+  VideoPlatform,
 } from './types';
 
 /**
@@ -110,6 +112,10 @@ export const refreshAllFeedIcons = () => call<number>('RefreshAllFeedIcons');
 export const discover = (url: string) => call<DiscoveredFeed[]>('Discover', url);
 export const addFeedByUrl = (url: string, categoryId = 0, view = '') =>
   call<Feed>('AddFeedByURL', url, categoryId, view);
+
+/** Resolves a Bilibili / YouTube username or user ID to subscribable channels. */
+export const searchVideoChannels = (platform: VideoPlatform, query: string) =>
+  call<VideoChannel[]>('SearchVideoChannels', platform, query);
 export const removeFeed = (id: number) => call<void>('RemoveFeed', id);
 export const updateFeed = (id: number, title: string, categoryId: number, view: string) =>
   call<void>('UpdateFeed', id, title, categoryId, view);

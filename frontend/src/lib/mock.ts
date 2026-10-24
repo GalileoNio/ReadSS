@@ -21,6 +21,8 @@ import type {
   RefreshProgress,
   RefreshResult,
   Settings,
+  VideoChannel,
+  VideoPlatform,
   ViewKey,
 } from './types';
 
@@ -62,6 +64,64 @@ const MOCK_PODCASTS: PodcastSuggestion[] = [
   reason,
   score: 30 - i,
 }));
+/** Preview-only video creators, shaped like the Go resolver's results. */
+const MOCK_VIDEO_CHANNELS: VideoChannel[] = [
+  {
+    platform: 'bilibili',
+    id: '546195',
+    name: '老番茄',
+    handle: '',
+    avatarUrl: thumb(350, 330, '番'),
+    description: '游戏区 UP 主',
+    url: 'https://space.bilibili.com/546195',
+    feedUrl: 'https://space.bilibili.com/546195',
+    subscribers: 20_856_000,
+    videos: 682,
+    verified: true,
+  },
+  {
+    platform: 'bilibili',
+    id: '946974',
+    name: '影视飓风',
+    handle: '',
+    avatarUrl: thumb(200, 220, '影'),
+    description: '影像技术与设备评测',
+    url: 'https://space.bilibili.com/946974',
+    feedUrl: 'https://space.bilibili.com/946974',
+    subscribers: 12_400_000,
+    videos: 410,
+    verified: true,
+  },
+  {
+    platform: 'youtube',
+    id: 'UCX6OQ3DkcsbYNE6H8uQQuVA',
+    name: 'MrBeast',
+    handle: '@MrBeast',
+    avatarUrl: thumb(30, 50, 'M'),
+    description: 'Challenges, philanthropy and giveaways',
+    url: 'https://www.youtube.com/channel/UCX6OQ3DkcsbYNE6H8uQQuVA',
+    feedUrl:
+      'https://www.youtube.com/feeds/videos.xml?channel_id=UCX6OQ3DkcsbYNE6H8uQQuVA',
+    subscribers: 437_000_000,
+    videos: 900,
+    verified: true,
+  },
+  {
+    platform: 'youtube',
+    id: 'UCsXVk37bltHxD1rDPwtNM8Q',
+    name: 'Kurzgesagt – In a Nutshell',
+    handle: '@kurzgesagt',
+    avatarUrl: thumb(150, 170, 'K'),
+    description: 'Science animations',
+    url: 'https://www.youtube.com/channel/UCsXVk37bltHxD1rDPwtNM8Q',
+    feedUrl:
+      'https://www.youtube.com/feeds/videos.xml?channel_id=UCsXVk37bltHxD1rDPwtNM8Q',
+    subscribers: 24_000_000,
+    videos: 220,
+    verified: true,
+  },
+];
+
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 
@@ -198,6 +258,8 @@ interface EntrySeed {
   title: string;
   summary: string;
   minutesAgo: number;
+  /** A real watch page, so the preview opens on a platform player. */
+  url?: string;
   read?: boolean;
   starred?: boolean;
   readLater?: boolean;
@@ -426,6 +488,7 @@ const ENTRY_SEEDS: EntrySeed[] = [
     summary:
       '从拍摄、剪辑到调色与编码，一条视频的后期链路完整拆解；最后附上不同码率下的画质对比。',
     minutesAgo: 3 * 60,
+    url: 'https://www.bilibili.com/video/BV1xx411c7mD',
     image: thumb(190, 210, '▶'),
     author: '影视飓风',
     body: ACCENT_BODY('这条片子的大部分时间花在了取舍上。', [
@@ -500,7 +563,7 @@ const entries: EntryDetail[] = ENTRY_SEEDS.map((seed, index) => {
     feedIcon: feed.iconUrl,
     feedView: feed.view,
     title: seed.title,
-    url: `${feed.siteUrl}/post/${index + 1}`,
+    url: seed.url ?? `${feed.siteUrl}/post/${index + 1}`,
     author: seed.author ?? feed.title,
     summary: seed.summary,
     imageUrl: seed.image ?? '',
@@ -707,6 +770,23 @@ const handlers: Record<string, (args: unknown[]) => unknown> = {
     return [...open.filter((p) => !seen.has(p.url)), ...open.filter((p) => seen.has(p.url))].slice(0, limit);
   },
 
+  SearchVideoChannels: async (args): Promise<VideoChannel[]> => {
+    await sleep(450);
+    const [platform, query] = args as [VideoPlatform, string];
+    const term = query.trim().toLowerCase();
+    if (!term) throw new Error('请输入用户名或用户 ID');
+    const pool = MOCK_VIDEO_CHANNELS.filter((c) => c.platform === platform);
+    const hit = pool.filter(
+      (c) =>
+        c.id.toLowerCase() === term ||
+        c.name.toLowerCase().includes(term) ||
+        c.handle.toLowerCase().includes(term),
+    );
+    // The preview has no real directory; show the sample channels rather than
+    // an empty state for any query the sample list does not cover.
+    return hit.length > 0 ? hit : pool.slice(0, 2);
+  },
+
   GetEntry: (args) => {
     const id = args[0] as number;
     const found = entries.find((e) => e.id === id);
@@ -835,6 +915,7 @@ const handlers: Record<string, (args: unknown[]) => unknown> = {
     const existing = feeds.find((f) => f.url === url);
     if (existing) return existing;
     const known = [...MOCK_SUGGESTIONS, ...MOCK_PODCASTS].find((s) => s.url === url);
+    const knownVideo = MOCK_VIDEO_CHANNELS.find((c) => c.feedUrl === url);
     const host = (() => {
       try {
         return new URL(url.startsWith('http') ? url : `https://${url}`).hostname.replace(/^www\./, '');
@@ -845,14 +926,14 @@ const handlers: Record<string, (args: unknown[]) => unknown> = {
     const id = Math.max(...feeds.map((f) => f.id)) + 1;
     const feed: Feed = {
       id,
-      title: known?.title ?? host,
+      title: known?.title ?? knownVideo?.name ?? host,
       url,
-      siteUrl: `https://${host}`,
-      description: '刚刚订阅的订阅源',
+      siteUrl: knownVideo?.url ?? `https://${host}`,
+      description: knownVideo?.description ?? '刚刚订阅的订阅源',
       iconUrl: '',
       color: `hsl(${(id * 53) % 360} 62% 52%)`,
       categoryId: categoryId || 0,
-      view: view || 'articles',
+      view: knownVideo ? 'videos' : view || 'articles',
       unread: 0,
       error: '',
       lastFetched: Date.now(),

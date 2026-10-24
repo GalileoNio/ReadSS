@@ -24,8 +24,10 @@ import { useUI } from '../store/ui';
 import { cn, formatDate, hostOf } from '../lib/utils';
 import { CardImage, FeedIcon, IconButton, Spinner } from './primitives';
 import { EpisodePlayBar } from './PodcastPlayer';
+import { VideoPlayer } from './VideoPlayer';
 import { openExternal } from '../lib/feedActions';
 import { handleContentLinkClick, proxyRemoteImages } from '../lib/remoteImages';
+import { videoEmbed } from '../lib/video';
 import { useViewport } from '../hooks/useViewport';
 
 /** Reader pane: Folo's article column. `modal` drops the column chrome when the
@@ -79,6 +81,9 @@ export function Reader({ modal = false }: { modal?: boolean }) {
       : contentMode === 'full' && entry.hasFullContent
         ? entry.fullContent
         : entry.feedContent || entry.content;
+
+  /** A video entry opens on the platform's own player, not on its thumbnail. */
+  const video = entry ? videoEmbed(entry.url) : null;
 
   const reExtract = async () => {
     const result = await fetchFullText();
@@ -233,22 +238,26 @@ export function Reader({ modal = false }: { modal?: boolean }) {
               playerActive ? 'pb-28' : 'pb-10',
             )}
           >
-            {/* The full-bleed cover shares the card's rounding for the flight hand-off. */}
-            {modal && (
-              <CardImage
-                src={entry.imageUrl}
-                proxy={imageProxy}
-                referer={entry.url}
-                seed={entry.feedTitle || entry.title}
-                ratio="16 / 9"
-                color={feeds.find((f) => f.id === entry.feedId)?.color}
-                title={entry.title}
-                hero
-                instant
-                contain
-                className="w-full"
-              />
-            )}
+            {/* The full-bleed cover shares the card's rounding for the flight
+                hand-off. A video replaces it with the platform's player. */}
+            {modal &&
+              (video ? (
+                <VideoPlayer url={entry.url} title={entry.title} />
+              ) : (
+                <CardImage
+                  src={entry.imageUrl}
+                  proxy={imageProxy}
+                  referer={entry.url}
+                  seed={entry.feedTitle || entry.title}
+                  ratio="16 / 9"
+                  color={feeds.find((f) => f.id === entry.feedId)?.color}
+                  title={entry.title}
+                  hero
+                  instant
+                  contain
+                  className="w-full"
+                />
+              ))}
             {/* Width is relative to the pane, not the viewport: `w-full` caps
                 the column and `max-w` only takes effect on a wide window. */}
             <div className={cn('mx-auto w-full min-w-0 px-4', measure)}>
@@ -307,26 +316,41 @@ export function Reader({ modal = false }: { modal?: boolean }) {
               <div
                 className={cn(
                   'flex flex-col gap-3',
-                  modal ? (entry.hasFullContent ? 'mt-4' : 'mt-14') : 'mt-5',
+                  video
+                    ? 'mt-4'
+                    : modal
+                      ? entry.hasFullContent
+                        ? 'mt-4'
+                        : 'mt-14'
+                      : 'mt-5',
                 )}
               >
-                {entry.imageUrl && !modal && (
-                  <CardImage
-                    src={entry.imageUrl}
-                    proxy={imageProxy}
-                    referer={entry.url}
-                    seed={entry.feedTitle || entry.title}
-                    ratio="16 / 9"
-                    color={feeds.find((f) => f.id === entry.feedId)?.color}
-                    hero
-                    instant
-                    className="rounded-xl"
-                  />
-                )}
+                {!modal &&
+                  (video ? (
+                    <VideoPlayer
+                      url={entry.url}
+                      title={entry.title}
+                      className="rounded-xl"
+                    />
+                  ) : (
+                    entry.imageUrl && (
+                      <CardImage
+                        src={entry.imageUrl}
+                        proxy={imageProxy}
+                        referer={entry.url}
+                        seed={entry.feedTitle || entry.title}
+                        ratio="16 / 9"
+                        color={feeds.find((f) => f.id === entry.feedId)?.color}
+                        hero
+                        instant
+                        className="rounded-xl"
+                      />
+                    )
+                  ))}
 
                 {/* A drawn cover already carries the title, so repeating it as a
                     heading underneath would show the same sentence twice. */}
-                {!(modal && !entry.imageUrl) && (
+                {!(modal && !entry.imageUrl && !video) && (
                   <h1 className="inline-block break-words text-[1.85rem] font-bold leading-normal text-fg">
                     {entry.url ? (
                       <a

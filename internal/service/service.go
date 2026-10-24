@@ -668,6 +668,15 @@ func (s *Service) Discover(rawURL string) ([]model.DiscoveredFeed, error) {
 	return s.fetcher.Discover(ctx, rawURL)
 }
 
+// SearchVideoChannels resolves a Bilibili or YouTube username / ID to channels
+// the reader can subscribe to. Subscribing still goes through AddFeedByURL, so
+// the result's feedUrl is a normal subscription address.
+func (s *Service) SearchVideoChannels(platform, query string) ([]model.VideoChannel, error) {
+	ctx, cancel := context.WithTimeout(s.baseCtx(), 40*time.Second)
+	defer cancel()
+	return s.fetcher.SearchVideoChannels(ctx, platform, query)
+}
+
 // AddFeedByURL subscribes to a URL, discovering the feed if necessary, and
 // immediately fetches its items.
 func (s *Service) AddFeedByURL(rawURL string, categoryID int64, view string) (*model.Feed, error) {

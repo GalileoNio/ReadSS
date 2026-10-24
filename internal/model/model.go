@@ -15,6 +15,12 @@ const (
 	ViewAudio = "audio"
 )
 
+// Video platform identifiers shared by the resolver, the fetcher and the UI.
+const (
+	VideoPlatformBilibili = "bilibili"
+	VideoPlatformYouTube  = "youtube"
+)
+
 // Scope values select what a timeline query shows.
 const (
 	ScopeAll       = "all"
@@ -247,6 +253,26 @@ type PodcastSuggestion struct {
 	// Reason says in one phrase why the show was picked.
 	Reason string `json:"reason"`
 	Score  int    `json:"score"`
+}
+
+// VideoChannel is an UP 主 / creator resolved from a username or an ID on a
+// video platform. FeedURL is what gets stored as the subscription: a native
+// RSS address for YouTube, and the creator's space page for Bilibili (whose
+// videos are fetched through its API).
+type VideoChannel struct {
+	Platform    string `json:"platform"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Handle      string `json:"handle"`
+	AvatarURL   string `json:"avatarUrl"`
+	Description string `json:"description"`
+	// URL is the human-facing channel page.
+	URL string `json:"url"`
+	// FeedURL is the subscription address handed to AddFeedByURL.
+	FeedURL     string `json:"feedUrl"`
+	Subscribers int    `json:"subscribers"`
+	Videos      int    `json:"videos"`
+	Verified    bool   `json:"verified"`
 }
 
 // RefreshResult summarises one refresh pass.

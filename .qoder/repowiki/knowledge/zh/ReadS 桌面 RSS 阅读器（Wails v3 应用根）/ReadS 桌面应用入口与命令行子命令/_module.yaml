@@ -1,0 +1,27 @@
+schema_version: 1
+module_path: go_backend
+title: ReadS 桌面应用入口与命令行子命令
+scope:
+    - main.go
+    - cli.go
+    - selftest.go
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: a0b8e65b-3dd0-49a7-942c-f26e0894a155
+kk_cards:
+    architecture_design:
+        id: 2f25f89c-41fb-4c44-996f-16f63da9d36d
+        title: ReadS 桌面应用入口与命令行子命令
+    coding_conventions:
+        id: e21f2072-2bcf-4f4a-a47b-06f39d5306b8
+        title: ReadS 桌面应用入口与命令行子命令
+    overview:
+        id: f13ec3e4-0ecc-4979-ab0f-09d2143547de
+        title: ReadS 桌面应用入口与命令行子命令
+    tech_stack:
+        id: 0a4baed7-8a9a-4ebf-9fbc-94932b1677ad
+        title: ReadS 桌面应用入口与命令行子命令
+    unique_setup_and_commands:
+        id: b9b42795-599f-4f49-b2ef-7c012e6f6069
+        title: ReadS 桌面应用入口与命令行子命令

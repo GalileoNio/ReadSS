@@ -1,13 +1,42 @@
 import { useEffect, useState } from 'react';
-import { Download, Link2, Rss, Upload } from 'lucide-react';
+import { Download, Link2, Rss, Search, Upload } from 'lucide-react';
 import { useApp } from '../store/app';
 import { useUI } from '../store/ui';
 import * as api from '../lib/api';
-import { ACCENTS, type DiscoveredFeed, type Settings } from '../lib/types';
+import {
+  ACCENTS,
+  type DiscoveredFeed,
+  type Settings,
+  type VideoChannel,
+  type VideoPlatform,
+} from '../lib/types';
 import { cn } from '../lib/utils';
 import { FeedIcon, Field, Kbd, Modal, Spinner, inputClass } from './primitives';
 
 /* ------------------------------------------------------------ AddFeed */
+
+const VIDEO_PLATFORMS: { key: VideoPlatform; label: string }[] = [
+  { key: 'bilibili', label: 'B站' },
+  { key: 'youtube', label: 'YouTube' },
+];
+
+function compactCount(value: number): string {
+  if (value >= 100_000_000) return `${(value / 100_000_000).toFixed(1).replace(/\.0$/, '')}亿`;
+  if (value >= 10_000) return `${(value / 10_000).toFixed(1).replace(/\.0$/, '')}万`;
+  return value.toLocaleString('zh-CN');
+}
+
+function channelMeta(channel: VideoChannel): string {
+  const id =
+    channel.handle || (channel.platform === 'bilibili' ? `UID ${channel.id}` : channel.id);
+  return [
+    id,
+    channel.subscribers > 0 && `${compactCount(channel.subscribers)} 粉丝`,
+    channel.videos > 0 && `${compactCount(channel.videos)} 个视频`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
 
 /** Subscribe to a URL: detect the feed, confirm, then fetch it. */
 export function AddFeedDialog() {
@@ -23,6 +52,14 @@ export function AddFeedDialog() {
   const [categoryId, setCategoryId] = useState(0);
   const [error, setError] = useState('');
 
+  // Video creators are searched separately: a username is not a URL, while a
+  // URL/UID can still go through the field above.
+  const [videoPlatform, setVideoPlatform] = useState<VideoPlatform>('bilibili');
+  const [videoQuery, setVideoQuery] = useState('');
+  const [videoChannels, setVideoChannels] = useState<VideoChannel[] | null>(null);
+  const [videoError, setVideoError] = useState('');
+  const [videoBusy, setVideoBusy] = useState<string | null>(null);
+
   useEffect(() => {
     if (open) {
       setUrl('');
@@ -30,6 +67,11 @@ export function AddFeedDialog() {
       setChosen(0);
       setError('');
       setBusy(false);
+      setVideoPlatform('bilibili');
+      setVideoQuery('');
+      setVideoChannels(null);
+      setVideoError('');
+      setVideoBusy(null);
     }
   }, [open]);
 
@@ -62,6 +104,38 @@ export function AddFeedDialog() {
       setError((err as Error).message);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const searchChannels = async () => {
+    const query = videoQuery.trim();
+    if (!query) return;
+    setVideoBusy('search');
+    setVideoError('');
+    setVideoChannels(null);
+    try {
+      const found = await api.searchVideoChannels(videoPlatform, query);
+      setVideoChannels(found ?? []);
+    } catch (err) {
+      setVideoError((err as Error).message);
+    } finally {
+      setVideoBusy(null);
+    }
+  };
+
+  const subscribeChannel = async (channel: VideoChannel) => {
+    setVideoBusy(channel.id);
+    setVideoError('');
+    try {
+      const feed = await api.addFeedByUrl(channel.feedUrl, categoryId, 'videos');
+      await reloadSubscriptions();
+      setOpen(false);
+      pushToast({ message: `已订阅 ${feed.title || channel.name}`, tone: 'success' });
+      await selectFeed(feed.id);
+      void refresh([feed.id]);
+    } catch (err) {
+      setVideoError((err as Error).message);
+      setVideoBusy(null);
     }
   };
 
@@ -112,6 +186,107 @@ export function AddFeedDialog() {
             ))}
           </select>
         </Field>
+
+        {/* Video creators ------------------------------------------------ */}
+        <div className="border-t border-border pt-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="text-headline font-medium text-fg/85">订阅视频 UP 主</span>
+            <div className="flex shrink-0 gap-1 rounded-md bg-fill p-0.5">
+              {VIDEO_PLATFORMS.map((p) => (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => {
+                    setVideoPlatform(p.key);
+                    setVideoChannels(null);
+                    setVideoError('');
+                  }}
+                  className={cn(
+                    'rounded px-2.5 py-1 text-callout font-medium transition-colors',
+                    videoPlatform === p.key
+                      ? 'bg-background text-fg shadow-sm'
+                      : 'text-fg/50 hover:text-fg/85',
+                  )}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              value={videoQuery}
+              onChange={(e) => setVideoQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && videoQuery.trim() && videoBusy !== 'search') {
+                  void searchChannels();
+                }
+              }}
+              placeholder={
+                videoPlatform === 'bilibili' ? '用户名或 UID，如 546195' : '@handle 或频道 ID'
+              }
+              className={cn(inputClass, 'min-w-0 flex-1')}
+            />
+            <button
+              type="button"
+              className="btn shrink-0"
+              disabled={videoBusy === 'search' || !videoQuery.trim()}
+              onClick={() => void searchChannels()}
+            >
+              {videoBusy === 'search' ? <Spinner size={13} /> : <Search size={14} />}
+              搜索
+            </button>
+          </div>
+
+          {videoError && (
+            <p className="mt-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-callout text-red-500">
+              {videoError}
+            </p>
+          )}
+
+          {videoChannels && videoChannels.length === 0 && (
+            <p className="mt-2 text-center text-callout text-fg/50">没有找到对应的频道</p>
+          )}
+
+          {videoChannels && videoChannels.length > 0 && (
+            <div className="scrollbar-thin mt-2 max-h-48 space-y-1 overflow-y-auto rounded-md border border-border p-1">
+              {videoChannels.map((channel) => (
+                <div
+                  key={`${channel.platform}:${channel.id}`}
+                  className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-item-hover"
+                >
+                  {channel.avatarUrl ? (
+                    <img
+                      src={channel.avatarUrl}
+                      alt=""
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                      className="h-9 w-9 shrink-0 rounded-full bg-fill object-cover"
+                    />
+                  ) : (
+                    <FeedIcon title={channel.name} size={36} />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-headline text-fg/85">
+                      {channel.name}
+                      {channel.verified && <span className="ml-1 text-accent">✓</span>}
+                    </p>
+                    <p className="truncate text-footnote text-fg/50">{channelMeta(channel)}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-accent h-7 shrink-0 px-3 text-callout"
+                    disabled={videoBusy === channel.id}
+                    onClick={() => void subscribeChannel(channel)}
+                  >
+                    {videoBusy === channel.id ? <Spinner size={12} /> : '订阅'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {candidates && candidates.length > 0 && (
           <div>

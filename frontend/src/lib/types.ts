@@ -145,6 +145,25 @@ export interface PodcastSuggestion {
   score: number;
 }
 
+/** A resolvable video creator: a Bilibili UP 主 or a YouTube channel. */
+export type VideoPlatform = 'bilibili' | 'youtube';
+
+export interface VideoChannel {
+  platform: VideoPlatform;
+  id: string;
+  name: string;
+  handle: string;
+  avatarUrl: string;
+  description: string;
+  /** Human-facing channel page. */
+  url: string;
+  /** Subscription address handed to AddFeedByURL. */
+  feedUrl: string;
+  subscribers: number;
+  videos: number;
+  verified: boolean;
+}
+
 export interface Bootstrap {
   categories: Category[];
   feeds: Feed[];

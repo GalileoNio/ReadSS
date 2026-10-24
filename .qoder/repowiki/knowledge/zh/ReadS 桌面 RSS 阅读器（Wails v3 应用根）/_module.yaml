@@ -1,0 +1,55 @@
+schema_version: 1
+module_path: root
+title: ReadS 桌面 RSS 阅读器（Wails v3 应用根）
+scope:
+    - README.md
+    - DESIGN.md
+    - DESIGN-REVIEW.md
+    - ICON-PLAN.md
+    - .gitignore
+    - wails.json
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 4322a3fb-3658-4484-86e6-1206688b218f
+kk_cards:
+    architecture_design:
+        id: beff8ced-cf70-41b7-baa4-27d1e34ea090
+        title: ReadS 桌面 RSS 阅读器（Wails v3 应用根）
+    coding_conventions:
+        id: 4046b0eb-9121-4e85-9ac9-e6115ded09d0
+        title: ReadS 桌面 RSS 阅读器（Wails v3 应用根）
+    overview:
+        id: 0519179f-7bcd-4319-a7aa-ff51c7f0f273
+        title: ReadS 桌面 RSS 阅读器（Wails v3 应用根）
+    tech_stack:
+        id: e8bcfa76-8b28-40c1-ab69-efda0fcc2d9d
+        title: ReadS 桌面 RSS 阅读器（Wails v3 应用根）
+    unique_setup_and_commands:
+        id: d0cb2ebd-20d1-4bd5-95f8-3b08257edacb
+        title: ReadS 桌面 RSS 阅读器（Wails v3 应用根）
+    build_system:
+        id: 80bb8912-0f40-4107-82b6-7fe4f106ceaa
+        title: ReadS 桌面应用构建系统（Wails + Vite + PowerShell）
+    configuration_system:
+        id: 4e61602b-7b05-4279-a4b6-66509482564e
+        title: ReadS 配置系统：Wails 构建配置 + 环境变量/命令行参数 + JSON 用户配置
+    dependency_management:
+        id: 0f9af743-2351-4c0c-86d3-6e58c907b970
+        title: 依赖管理：Go + pnpm 双栈，无私有仓库与 vendoring
+    error_handling:
+        id: 4825e76d-aee5-4046-8a4c-f11f9755e477
+        title: Go/TS 混合应用的错误处理模式
+    frontend_style:
+        id: 1f2468aa-48bd-4348-9395-0b5a2ddb11d2
+        title: 基于 Tailwind CSS + CSS 变量的设计令牌与暗色主题系统
+    logging_system:
+        id: 2d719fa2-8f5f-4e37-ae1e-6e37ed17798d
+        title: 基于 Go log/slog 的文件日志与 Wails 集成
+kk_repo_cards:
+    - build_system
+    - configuration_system
+    - dependency_management
+    - error_handling
+    - frontend_style
+    - logging_system
