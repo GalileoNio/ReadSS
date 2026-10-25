@@ -26,7 +26,7 @@ export function CommandPalette() {
   const setAddFeedOpen = useUI((s) => s.setAddFeedOpen);
   const setSettingsOpen = useUI((s) => s.setSettingsOpen);
   const setShortcutsOpen = useUI((s) => s.setShortcutsOpen);
-  const { feeds, selectFeed, selectSmart, refresh, openEntry } = useApp();
+  const { feeds, selectFeed, selectSmart, refresh, openEntry, search, setSearch } = useApp();
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Entry[]>([]);
@@ -36,7 +36,8 @@ export function CommandPalette() {
 
   useEffect(() => {
     if (open) {
-      setQuery('');
+      // Start from the active list filter so it can be edited or cleared.
+      setQuery(search);
       setResults([]);
       setActive(0);
       window.setTimeout(() => inputRef.current?.focus(), 30);
@@ -132,8 +133,36 @@ export function CommandPalette() {
     return pool.filter((c) => c.label.toLowerCase().includes(needle)).slice(0, 8);
   }, [feeds, query, refresh, selectFeed, selectSmart, setAddFeedOpen, setSettingsOpen, setShortcutsOpen]);
 
+  /* The list filter lives here now that the inline search field is gone. */
+  const filterCommands = useMemo<Command[]>(() => {
+    const needle = query.trim();
+    if (needle && !needle.startsWith('>')) {
+      return [
+        {
+          id: 'filter-list',
+          label: `在列表里筛选“${needle}”`,
+          hint: '只看当前列表中的匹配文章',
+          group: '筛选',
+          run: () => void setSearch(needle),
+        },
+      ];
+    }
+    if (search) {
+      return [
+        {
+          id: 'clear-filter',
+          label: `清除筛选“${search}”`,
+          group: '筛选',
+          run: () => void setSearch(''),
+        },
+      ];
+    }
+    return [];
+  }, [query, search, setSearch]);
+
   const items: Command[] = useMemo(
     () => [
+      ...filterCommands,
       ...commands,
       ...results.map<Command>((entry) => ({
         id: `entry-${entry.id}`,
@@ -144,7 +173,7 @@ export function CommandPalette() {
         run: () => void openEntry(entry.id),
       })),
     ],
-    [commands, results, openEntry],
+    [filterCommands, commands, results, openEntry],
   );
 
   /* Keep the highlighted row scrolled into view. */
@@ -200,7 +229,7 @@ export function CommandPalette() {
                 setOpen(false);
               }
             }}
-            placeholder="搜索文章、订阅源或执行命令…"
+            placeholder="搜索文章、订阅源，或执行命令…"
             className="min-w-0 flex-1 bg-transparent text-title3 text-fg placeholder:text-fg/25 focus:outline-none"
           />
           <Kbd>Esc</Kbd>

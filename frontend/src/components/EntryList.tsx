@@ -413,7 +413,7 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   // Phones turn the smart-filter group into a floating bottom bar (§7.5).
   const { isCompact } = useViewport();
-  // The podcast dock floats above the bottom bars; keep the last row reachable.
+  // The podcast dock floats at the bottom; keep the last row reachable.
   const playerActive = usePlayer((s) => Boolean(s.entry));
 
   /* Pull down from the top of the list to refresh. Stable identity so the
@@ -424,7 +424,7 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
   }, [refresh]);
   const pull = usePullToRefresh(onPullRefresh, scrollRef);
 
-  /* Floating feed switcher at the bottom of the column. */
+  /* Feed switcher row under the header; its panel drops down over the list. */
   const [switcherOpen, setSwitcherOpen] = useState(false);
   useEffect(() => {
     if (!switcherOpen) return;
@@ -763,34 +763,85 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
         </div>
       </header>
 
-      {/* Search ------------------------------------------------------- */}
-      <div className={cn('shrink-0 border-b border-border py-1.5', mobileFullWidth ? 'px-2' : 'px-4')}>
-        <div className={cn('flex w-full items-center gap-2', !masonry && 'mx-auto max-w-col')}>
-        <Search size={14} className="shrink-0 text-fg/25" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="搜索文章…"
-          className="min-w-0 flex-1 bg-transparent text-headline text-fg/85 placeholder:text-fg/25 focus:outline-none"
+      {/* Feed switcher ------------------------------------------------ */}
+      {/* A floating bar under the header holding what the sidebar used to:
+          current context, discover, search, settings and the feed panel,
+          which drops down over the list (DESIGN.md §7.6). */}
+      {switcherOpen && (
+        <div
+          className="absolute inset-0 z-20"
+          onClick={() => setSwitcherOpen(false)}
+          aria-hidden="true"
         />
-        {search && (
+      )}
+      <div className={cn('relative z-30 shrink-0 pb-1 pt-2', mobileFullWidth ? 'px-2' : 'px-4')}>
+        <div className={cn('relative w-full', !masonry && 'mx-auto max-w-col')}>
+        <div className="flex h-9 w-full items-center rounded-full border border-border/70 bg-background/85 px-1 shadow-pop backdrop-blur-xl">
           <button
             type="button"
-            className="shrink-0 text-footnote text-fg/50 hover:text-fg/85"
-            onClick={() => setSearch('')}
+            aria-expanded={switcherOpen}
+            data-switcher="toggle"
+            onClick={() => setSwitcherOpen((v) => !v)}
+            className="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-full px-2 text-left transition-colors hover:bg-item-hover"
           >
-            清除
+            {refreshing && progress ? (
+              <>
+                <Spinner size={14} className="shrink-0" />
+                <span className="min-w-0 flex-1 truncate text-headline font-medium text-fg/85">
+                  正在刷新 {progress.done}/{progress.total}
+                </span>
+              </>
+            ) : (
+              <>
+                {activeFeed ? (
+                  <FeedIcon
+                    title={activeFeed.title}
+                    iconUrl={activeFeed.iconUrl}
+                    size={16}
+                    className="shrink-0"
+                  />
+                ) : activeCategory ? (
+                  <Folder size={16} className="shrink-0 text-fg/50" />
+                ) : (
+                  <Rss size={16} className="shrink-0 text-fg/50" />
+                )}
+                <span className="min-w-0 flex-1 truncate text-headline font-medium text-fg/85">
+                  {switcherLabel}
+                </span>
+              </>
+            )}
+            {switcherOpen ? (
+              <ChevronUp size={14} className="shrink-0 text-fg/50" />
+            ) : (
+              <ChevronDown size={14} className="shrink-0 text-fg/50" />
+            )}
           </button>
+          <span aria-hidden className="mx-1 h-4 w-px shrink-0 bg-border" />
+          <IconButton title="发现" onClick={() => setDiscoverOpen(true)}>
+            <Compass size={16} />
+          </IconButton>
+          <IconButton title="搜索 (Ctrl+K)" onClick={() => setPaletteOpen(true)}>
+            <Search size={16} />
+          </IconButton>
+          <IconButton
+            title={masonry ? '列表模式' : '瀑布流模式'}
+            active={masonry}
+            onClick={() => void updateSettings({ entryLayout: masonry ? 'list' : 'masonry' })}
+          >
+            {masonry ? <LayoutList size={16} /> : <LayoutGrid size={16} />}
+          </IconButton>
+          <IconButton title="设置" onClick={() => setSettingsOpen(true)}>
+            <SettingsIcon size={16} />
+          </IconButton>
+        </div>
+
+        {/* A sibling of the bar, not a child: a backdrop-filter nested inside
+            another one only blurs its parent, so the panel would look clear. */}
+        {switcherOpen && (
+          <div className="absolute inset-x-0 top-full mt-1.5 flex max-h-[min(60vh,26rem)] flex-col overflow-hidden rounded-panel border border-border/70 bg-background/85 shadow-pop backdrop-blur-xl">
+            <FeedSwitcher onNavigate={() => setSwitcherOpen(false)} />
+          </div>
         )}
-        {/* Layout switch: rows ⇄ waterfall (DESIGN.md §7.7). Sits here so the
-            header keeps its filter capsules uncrowded. */}
-        <IconButton
-          title={masonry ? '列表模式' : '瀑布流模式'}
-          active={masonry}
-          onClick={() => void updateSettings({ entryLayout: masonry ? 'list' : 'masonry' })}
-        >
-          {masonry ? <LayoutList size={16} /> : <LayoutGrid size={16} />}
-        </IconButton>
         </div>
       </div>
 
@@ -804,16 +855,16 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
         onClickCapture={pull.guardClick}
         className={cn(
           'scrollbar-thin touch-pan-y relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-2',
-          // Phones stack two floating bars at the bottom (smart filters + feed
-          // switcher), so the last cards need more clearance. The podcast dock
-          // adds one more layer when an episode is loaded.
+          // Phones float the smart-filter bar at the bottom, so the last cards
+          // need clearance. The podcast dock adds one more layer when an
+          // episode is loaded.
           isCompact
             ? playerActive
-              ? 'pb-64'
-              : 'pb-32'
-            : playerActive
               ? 'pb-44'
-              : 'pb-16',
+              : 'pb-24'
+            : playerActive
+              ? 'pb-24'
+              : 'pb-4',
         )}
       >
         {/* Pull-to-refresh indicator: revealed by dragging down at the top. */}
@@ -832,6 +883,20 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
             '下拉刷新'
           )}
         </div>
+        {search && (
+          <div className={cn('mb-1 flex items-center gap-2 text-callout text-fg/50', !masonry && 'mx-auto w-full max-w-col')}>
+            <span className="min-w-0 truncate">
+              筛选：<span className="text-fg/85">{search}</span>
+            </span>
+            <button
+              type="button"
+              className="shrink-0 text-footnote text-fg/50 hover:text-fg/85"
+              onClick={() => setSearch('')}
+            >
+              清除
+            </button>
+          </div>
+        )}
         {loadingEntries && entries.length === 0 && <SkeletonRows />}
 
         {!loadingEntries && entries.length === 0 && (
@@ -926,17 +991,8 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
         )}
       </div>
 
-      {/* Feed switcher: a floating bar at the bottom of the column. The panel
-          with groups and feeds opens upward, over the list (DESIGN.md §7.6). */}
-      {switcherOpen && (
-        <div
-          className="absolute inset-0 z-20"
-          onClick={() => setSwitcherOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-      {/* Phones: 首页/未读/星标/稍后读/今天 become the floating bottom bar, and
-          the feed switcher sits above it (DESIGN.md §7.5). */}
+      {/* Phones: 首页/未读/星标/稍后读/今天 become the floating bottom bar
+          (DESIGN.md §7.5). */}
       {isCompact && (
         <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <div className="pointer-events-auto w-full max-w-md rounded-full border border-border/70 bg-background/85 p-1 shadow-pop backdrop-blur-xl">
@@ -944,72 +1000,6 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
           </div>
         </div>
       )}
-
-      <div
-        className={cn(
-          'pointer-events-none absolute inset-x-2 z-30 flex flex-col gap-1.5',
-          isCompact ? 'bottom-20' : 'bottom-2',
-        )}
-      >
-        {switcherOpen && (
-          <div className="pointer-events-auto flex max-h-[min(60vh,26rem)] flex-col overflow-hidden rounded-panel border border-border bg-background/85 shadow-modal backdrop-blur-xl">
-            <FeedSwitcher onNavigate={() => setSwitcherOpen(false)} />
-          </div>
-        )}
-        {/* The bar replaces what the sidebar used to hold: current context,
-            search, settings and the feed switcher toggle (DESIGN.md §7.6). */}
-        <div className="pointer-events-auto flex h-9 items-center rounded-full border border-border/70 bg-background/85 px-1 shadow-pop backdrop-blur-xl">
-          <button
-            type="button"
-            aria-expanded={switcherOpen}
-            data-switcher="toggle"
-            onClick={() => setSwitcherOpen((v) => !v)}
-            className="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-full px-2 text-left transition-colors hover:bg-item-hover"
-          >
-            {refreshing && progress ? (
-              <>
-                <Spinner size={14} className="shrink-0" />
-                <span className="min-w-0 flex-1 truncate text-headline font-medium text-fg/85">
-                  正在刷新 {progress.done}/{progress.total}
-                </span>
-              </>
-            ) : (
-              <>
-                {activeFeed ? (
-                  <FeedIcon
-                    title={activeFeed.title}
-                    iconUrl={activeFeed.iconUrl}
-                    size={16}
-                    className="shrink-0"
-                  />
-                ) : activeCategory ? (
-                  <Folder size={16} className="shrink-0 text-fg/50" />
-                ) : (
-                  <Rss size={16} className="shrink-0 text-fg/50" />
-                )}
-                <span className="min-w-0 flex-1 truncate text-headline font-medium text-fg/85">
-                  {switcherLabel}
-                </span>
-              </>
-            )}
-            {switcherOpen ? (
-              <ChevronDown size={14} className="shrink-0 text-fg/50" />
-            ) : (
-              <ChevronUp size={14} className="shrink-0 text-fg/50" />
-            )}
-          </button>
-          <span aria-hidden className="mx-1 h-4 w-px shrink-0 bg-border" />
-          <IconButton title="发现" onClick={() => setDiscoverOpen(true)}>
-            <Compass size={16} />
-          </IconButton>
-          <IconButton title="搜索 (Ctrl+K)" onClick={() => setPaletteOpen(true)}>
-            <Search size={16} />
-          </IconButton>
-          <IconButton title="设置" onClick={() => setSettingsOpen(true)}>
-            <SettingsIcon size={16} />
-          </IconButton>
-        </div>
-      </div>
     </section>
   );
 }

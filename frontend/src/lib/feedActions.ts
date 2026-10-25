@@ -1,7 +1,7 @@
-// Small feed-related actions used by the floating feed switcher.
+// Small feed-related actions used by the feed switcher.
 //
 // These used to live in Sidebar.tsx; they moved out when the group/feed list
-// relocated to the floating switcher at the bottom of the list column.
+// relocated to the feed switcher row under the list header.
 import type { MenuItem } from '../store/ui';
 import { VIEWS } from './types';
 

@@ -20,8 +20,8 @@ import { RemoteImage } from './primitives';
 
 /** How much room the floating strip takes at the bottom of the window. */
 export const PLAYER_DOCK_SPACE = {
-  desktop: 'calc(3.5rem + 58px)',
-  compact: 'calc(7.6rem + 50px)',
+  desktop: 'calc(0.75rem + 58px)',
+  compact: 'calc(5.5rem + 50px)',
 } as const;
 
 function nextRate(rate: number): number {
@@ -235,7 +235,7 @@ export function PlayerStrip() {
 }
 
 /**
- * Persistent podcast dock. It stays above the feed switcher (and, on phones,
+ * Persistent podcast dock. It floats at the bottom of the window (on phones,
  * above the smart-filter bar), so playback continues while the reader browses
  * or opens show notes (DESIGN.md §7.14). The strip is exactly as wide as the
  * article modal; when the modal opens it ends flush on the dock's top edge, so
@@ -256,8 +256,8 @@ export function PodcastPlayer() {
     <div
       className={cn(
         'pointer-events-none fixed inset-x-0 z-[60] flex justify-center',
-        // Clear the two stacked bars at the bottom of the list column.
-        isCompact ? 'bottom-[7.6rem]' : 'bottom-14',
+        // Phones clear the smart-filter bar at the bottom of the list column.
+        isCompact ? 'bottom-[5.5rem]' : 'bottom-3',
       )}
     >
       <div
