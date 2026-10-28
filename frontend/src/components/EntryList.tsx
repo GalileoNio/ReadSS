@@ -619,7 +619,7 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
           'flex shrink-0 items-center',
           compact
             ? 'w-full justify-between gap-1'
-            : 'gap-0.5 rounded-full border border-border/70 bg-fill/50 p-0.5',
+            : 'pointer-events-auto gap-0.5 rounded-full border border-border/70 bg-background/85 p-0.5 shadow-pop backdrop-blur-xl',
         )}
       >
         {/* 首页 draws the animated house, so it needs the view-tab mount point. */}
@@ -657,10 +657,21 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
         mobileFullWidth && 'w-full',
       )}
     >
+      {/* Progressive blur beneath the floating bars, in the pills' material.
+          The fade begins above the feed-switcher pill and is clear by the
+          first row, so content softens into the bars without a hard strip. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 z-20 h-[var(--h-float-top)] blur-top-progressive"
+      />
+
       {/* Header ------------------------------------------------------- */}
+      {/* The bars float over the list, so articles scroll underneath them
+          instead of stopping at an opaque strip. Only the pills themselves
+          take pointer events. */}
       <header
         className={cn(
-          'h-header w-full shrink-0 border-b border-border pt-2',
+          'pointer-events-none absolute inset-x-0 top-0 z-30 h-header w-full pt-2',
           mobileFullWidth ? 'px-2' : 'px-4',
         )}
       >
@@ -691,7 +702,7 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
           ) : null}
 
           {/* Views */}
-          <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-border/70 bg-fill/50 p-0.5">
+          <div className="pointer-events-auto flex shrink-0 items-center gap-0.5 rounded-full border border-border/70 bg-background/85 p-0.5 shadow-pop backdrop-blur-xl">
             {VIEWS.map((view, index) => {
               const active = selection.scope === 'all' && selection.view === view.key;
               const count =
@@ -735,7 +746,7 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
           {!isCompact && renderSmartGroup(false)}
         </div>
 
-        <div className="flex shrink-0 items-center gap-0.5">
+        <div className="pointer-events-auto flex h-8 shrink-0 items-center gap-0.5 rounded-full border border-border/70 bg-background/85 px-1 shadow-pop backdrop-blur-xl">
           <IconButton
             title="刷新 (R)"
             disabled={refreshing}
@@ -774,9 +785,14 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
           aria-hidden="true"
         />
       )}
-      <div className={cn('relative z-30 shrink-0 pb-1 pt-2', mobileFullWidth ? 'px-2' : 'px-4')}>
+      <div
+        className={cn(
+          'pointer-events-none absolute inset-x-0 top-[var(--h-header)] z-30 pb-1 pt-1',
+          mobileFullWidth ? 'px-2' : 'px-4',
+        )}
+      >
         <div className={cn('relative w-full', !masonry && 'mx-auto max-w-col')}>
-        <div className="flex h-9 w-full items-center rounded-full border border-border/70 bg-background/85 px-1 shadow-pop backdrop-blur-xl">
+        <div className="pointer-events-auto flex h-9 w-full items-center rounded-full border border-border/70 bg-background/85 px-1 shadow-pop backdrop-blur-xl">
           <button
             type="button"
             aria-expanded={switcherOpen}
@@ -854,7 +870,9 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
         ref={scrollRef}
         onClickCapture={pull.guardClick}
         className={cn(
-          'scrollbar-thin touch-pan-y relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-2',
+          // Starts below the floating bars so the first row is not hidden, and
+          // scrolls beneath them from there on.
+          'scrollbar-thin touch-pan-y relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-[calc(var(--h-float-top)+0.5rem)]',
           // Phones float the smart-filter bar at the bottom, so the last cards
           // need clearance. The podcast dock adds one more layer when an
           // episode is loaded.
@@ -945,7 +963,7 @@ export function EntryList({ mobileFullWidth = false }: EntryListProps) {
             {groupByDate(entries, settings.groupByDate).map((group) => (
               <div key={group.key}>
                 {group.label && (
-                  <div className="sticky top-0 z-[1] -mx-4 bg-background/95 px-4 py-1.5 text-footnote font-medium text-fg/50 backdrop-blur">
+                  <div className="sticky top-[var(--h-float-top)] z-[1] -mx-4 bg-background/85 px-4 py-1.5 text-footnote font-medium text-fg/50 backdrop-blur">
                     {group.label}
                   </div>
                 )}

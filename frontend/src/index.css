@@ -33,6 +33,10 @@
     --r-card: 10px;
     --r-panel: 12px;
     --h-header: 53px;
+    /* The feed-switcher row floating under the header. List content starts
+       below both, and sticks to this offset while scrolling. */
+    --h-switcher: 44px;
+    --h-float-top: calc(var(--h-header) + var(--h-switcher));
     --w-rail: 400px;
     --w-col: 900px;
     --w-dialog: 560px;
@@ -193,6 +197,17 @@
   }
   .line-clamp-4 {
     -webkit-line-clamp: 4;
+  }
+
+  /* Progressive blur under the floating top bars, built from the pills' own
+     material: full strength at the top edge, ramping linearly to clear at the
+     bottom of the strip (the 0–100% range is the ramp, no flat stretch). */
+  .blur-top-progressive {
+    background-color: hsl(var(--fo-background) / 0.85);
+    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 0%, transparent 100%);
   }
 }
 
